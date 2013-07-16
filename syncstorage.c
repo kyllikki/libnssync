@@ -13,8 +13,13 @@
 
 #define BUFFER_SIZE  (256 * 1024)  /* 256 KB */
 
-#define URL_FORMAT   "https://api.github.com/repos/%s/%s/commits"
 #define URL_SIZE     256
+
+#define AUTH_SERVER "https://auth.services.mozilla.com/" 
+#define AUTH_PATH "%suser/1.0/%s/node/weave"
+#define STORAGE_PATH "%s1.1/${USERID}/storage/%s?full=1"
+#define USERNAME "vince@kyllikki.org"
+#define PASSWORD "insecure"
 
 /* Return the offset of the first newline in text or the length of
    text if there's no newline */
@@ -94,6 +99,33 @@ static char *request(const char *url)
 	return data;
 }
 
+
+int main(int argc, char *argv[])
+{
+	size_t i;
+	char *text;
+	char url[URL_SIZE];
+
+	json_t *root;
+	json_error_t error;
+
+	if(argc != 3)
+	{
+		fprintf(stderr, "usage: %s USER REPOSITORY\n\n", argv[0]);
+		fprintf(stderr, "List commits at USER's REPOSITORY.\n\n");
+		return 2;
+	}
+
+	snprintf(url, URL_SIZE, URL_FORMAT, argv[1], argv[2]);
+
+	text = request(url);
+	if (text == NULL)
+		return 1;
+
+}
+
+
+#if 0
 int main(int argc, char *argv[])
 {
 	size_t i;
@@ -174,3 +206,4 @@ int main(int argc, char *argv[])
 	json_decref(root);
 	return 0;
 }
+#endif
