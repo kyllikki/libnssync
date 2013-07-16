@@ -1,7 +1,7 @@
 #!/bin/bash
 
 USERNAME=vince@kyllikki.org
-PASSWORD=Becky1234
+PASSWORD=insecure
 
 USERID=$(./sha1base32 ${USERNAME})
 
