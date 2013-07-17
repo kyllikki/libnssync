@@ -23,9 +23,9 @@
 
 #define AUTH_SERVER "https://auth.services.mozilla.com/"
 #define AUTH_PATH "%suser/1.0/%s/node/weave"
-#define STORAGE_PATH "%s1.1/${USERID}/storage/%s?full=1"
+#define STORAGE_PATH "%s1.1/%s/storage/%s?full=1"
 #define ACCOUNT_NAME "vince@kyllikki.org"
-#define PASSWORD "insecure"
+#define ACCOUNT_PASSWORD "insecure"
 
 static bool isvalidusername(const char *s)
 {
@@ -120,7 +120,7 @@ static size_t write_response(void *ptr, size_t size, size_t nmemb, void *stream)
 	return size * nmemb;
 }
 
-static char *request(const char *url)
+static char *request(const char *url, const char *username, const char *password)
 {
 	CURL *curl;
 	CURLcode status;
@@ -140,6 +140,11 @@ static char *request(const char *url)
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_response);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_result);
+
+	if (username != NULL) {
+		curl_easy_setopt(curl, CURLOPT_USERNAME, username);
+		curl_easy_setopt(curl, CURLOPT_PASSWORD, password);
+	}
 
 	status = curl_easy_perform(curl);
 	if(status != 0)
@@ -172,7 +177,7 @@ int main(int argc, char *argv[])
 	char *text;
 	char url[URL_SIZE];
 	char *username;
-
+	char *storage_server;
 	json_t *root;
 	json_error_t error;
 
@@ -180,92 +185,67 @@ int main(int argc, char *argv[])
 
 	snprintf(url, URL_SIZE, AUTH_PATH, AUTH_SERVER, username);
 
-	text = request(url);
-	if (text == NULL)
+	storage_server = request(url, NULL, NULL);
+	if (storage_server == NULL)
 		return 1;
-	printf("%s\n", text);
-}
+	// printf("%s\n", storage_server);
 
+	snprintf(url, URL_SIZE, STORAGE_PATH, storage_server, username, "meta/global");
 
-#if 0
-int main(int argc, char *argv[])
-{
-	size_t i;
-	char *text;
-	char url[URL_SIZE];
-
-	json_t *root;
-	json_error_t error;
-
-	if(argc != 3)
-	{
-		fprintf(stderr, "usage: %s USER REPOSITORY\n\n", argv[0]);
-		fprintf(stderr, "List commits at USER's REPOSITORY.\n\n");
-		return 2;
+	text = request(url, username, ACCOUNT_PASSWORD);
+	if (!text) {
+		return 1;
 	}
-
-	snprintf(url, URL_SIZE, URL_FORMAT, argv[1], argv[2]);
-
-	text = request(url);
-	if(!text)
-		return 1;
+	//printf("%s\n", text);
 
 	root = json_loads(text, 0, &error);
 	free(text);
 
-	if(!root)
-	{
+	if (!root) {
 		fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
 		return 1;
 	}
 
-	if(!json_is_array(root))
-	{
-		fprintf(stderr, "error: root is not an array\n");
+	if(!json_is_object(root)) {
+		fprintf(stderr, "error: root is not an object\n");
 		return 1;
 	}
 
-	for(i = 0; i < json_array_size(root); i++)
-	{
-		json_t *data, *sha, *commit, *message;
-		const char *message_text;
 
-		data = json_array_get(root, i);
-		if(!json_is_object(data))
-		{
-			fprintf(stderr, "error: commit data %d is not an object\n", i + 1);
-			return 1;
+	const char *key;
+	json_t *value;
+
+        json_object_foreach(root, key, value) {
+		if (json_is_object(value)) {
+			printf("%s(object):%p\n", key, 
+			       value);
+		} else if (json_is_array(value)) {
+			printf("%s(array):%p\n", key, 
+			       value);
+		} else if (json_is_string(value)) {
+			printf("%s(string):%s\n", key, 
+			       json_string_value(value));
 		}
+	}
 
-		sha = json_object_get(data, "sha");
-		if(!json_is_string(sha))
-		{
-			fprintf(stderr, "error: commit %d: sha is not a string\n", i + 1);
-			return 1;
+	json_t *payload;
+	payload = json_object_get(root, "payload");
+	if (!json_is_object(payload)) {
+		fprintf(stderr, "error: payload is not an object\n");
+		return 1;
+	}
+
+
+
+        json_object_foreach(payload, key, value) {
+		if (json_is_string(value)) {
+			printf("%s:%s\n", key, json_string_value(value));
 		}
-
-		commit = json_object_get(data, "commit");
-		if(!json_is_object(commit))
-		{
-			fprintf(stderr, "error: commit %d: commit is not an object\n", i + 1);
-			return 1;
-		}
-
-		message = json_object_get(commit, "message");
-		if(!json_is_string(message))
-		{
-			fprintf(stderr, "error: commit %d: message is not a string\n", i + 1);
-			return 1;
-		}
-
-		message_text = json_string_value(message);
-		printf("%.8s %.*s\n",
-		       json_string_value(sha),
-		       newline_offset(message_text),
-		       message_text);
 	}
 
 	json_decref(root);
 	return 0;
+	
 }
-#endif
+
+
