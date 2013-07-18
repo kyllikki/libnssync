@@ -14,7 +14,7 @@ all:sha1base32 syncstorage
 
 sha1base32:base32.o sha1base32.o #sha1.o
 
-syncstorage:syncstorage.o base32.o
+syncstorage:syncstorage.o base32.o request.o storage.o
 
 clean:
 	${RM} syncstorage.o syncstorage sha1base32 sha1.o base32.o sha1base32.o
