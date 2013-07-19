@@ -60,6 +60,7 @@ nssync_storage_new(const char *server,
 		   const char *password)
 {
 	struct nssync_storage *newstore; /* new storage service */
+	const char *fmt;
 
 	newstore = calloc(1, sizeof(*newstore));
 	if (newstore == NULL) {
@@ -69,8 +70,24 @@ nssync_storage_new(const char *server,
 	newstore->username = strdup(username);
 	newstore->password = strdup(password);
 
-	if (saprintf(&newstore->base, "%s/%s/1.1/%s/",
-		     server, pathname, username) < 0) {
+	/* alter the format specifier depending on separator requirements */
+	if (server[strlen(server) - 1] ==  '/') {
+		if ((pathname[0] == 0) || 
+		    (pathname[strlen(pathname) - 1] == '/')) {
+			fmt = "%s%s1.1/%s";
+		} else {
+			fmt = "%s%s/1.1/%s";			
+		}
+	} else {
+		if ((pathname[0] == 0) || 
+		    (pathname[strlen(pathname) - 1] == '/')) {
+			fmt = "%s/%s1.1/%s";
+		} else {
+			fmt = "%s/%s/1.1/%s";			
+		}
+	}
+
+	if (saprintf(&newstore->base, fmt, server, pathname, username) < 0) {
 		free(newstore);
 		return NULL;
 	}
@@ -103,6 +120,8 @@ nssync_storage_obj_fetch(struct nssync_storage *store, const char *path)
 		     store->base,path) < 0) {
 		return NULL;
 	}
+
+	printf("requesting:%s\n", url);
 
 	reply = nssync__request(url, store->username, store->password);
 	free(url);
