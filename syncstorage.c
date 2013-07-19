@@ -24,7 +24,6 @@
 #define AUTH_PATH "%suser/1.0/%s/node/weave"
 #define STORAGE_PATH "%s1.1/%s/storage/%s?full=1"
 #define ACCOUNT_NAME "vince@kyllikki.org"
-#define ACCOUNT_PASSWORD "insecure"
 
 static bool isvalidusername(const char *s)
 {
@@ -94,25 +93,27 @@ int main(int argc, char *argv[])
 	char *storage_server;
 	json_t *root;
 	json_error_t error;
-
+	char *password;
 	struct nssync_storage *store;
 	struct nssync_storage_obj *obj;
 
 	username = moz_sync_username_from_accountname(ACCOUNT_NAME);
-
+	password = argv[1];
 
 	snprintf(url, URL_SIZE, AUTH_PATH, AUTH_SERVER, username);
 
 	storage_server = nssync__request(url, NULL, NULL);
 	if (storage_server == NULL)
 		return 1;
-	printf("%s\n\n", storage_server);
+	//printf("%s\n\n", storage_server);
 
+	store = nssync_storage_new(storage_server, "", username, password);
 
-	store = nssync_storage_new(storage_server, "", username, ACCOUNT_PASSWORD); 
-
-	
 	obj = nssync_storage_obj_fetch(store, "storage/meta/global");
+	if (obj == NULL) {
+		fprintf(stderr, "unable to retrive global object\n");
+		return 1;
+	}
 
 	root = json_loads(nssync_storage_obj_payload(obj), 0, &error);
 
@@ -132,15 +133,15 @@ int main(int argc, char *argv[])
 	const char *key;
 	json_t *value;
 
-        json_object_foreach(root, key, value) {
+	json_object_foreach(root, key, value) {
 		if (json_is_object(value)) {
-			printf("%s(object):%p\n", key, 
+			printf("%s(object):%p\n", key,
 			       value);
 		} else if (json_is_array(value)) {
-			printf("%s(array):%p\n", key, 
+			printf("%s(array):%p\n", key,
 			       value);
 		} else if (json_is_string(value)) {
-			printf("%s(string):%s\n", key, 
+			printf("%s(string):%s\n", key,
 			       json_string_value(value));
 		}
 	}
@@ -154,7 +155,7 @@ int main(int argc, char *argv[])
 
 
 
-        json_object_foreach(payload, key, value) {
+	json_object_foreach(payload, key, value) {
 		if (json_is_string(value)) {
 			printf("%s:%s\n", key, json_string_value(value));
 		}
@@ -162,7 +163,5 @@ int main(int argc, char *argv[])
 
 	json_decref(root);
 	return 0;
-	
+
 }
-
-

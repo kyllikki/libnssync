@@ -121,14 +121,14 @@ nssync_storage_obj_fetch(struct nssync_storage *store, const char *path)
 		return NULL;
 	}
 
-	printf("requesting:%s\n", url);
+	/* printf("requesting:%s\n", url); */
 
 	reply = nssync__request(url, store->username, store->password);
 	free(url);
 	if (reply == NULL) {
 		return NULL;
 	}
-	printf("%s\n\n", reply);
+	/* printf("%s\n\n", reply); */
 
 	obj = calloc(1, sizeof(*obj));
 	if (obj == NULL) {
