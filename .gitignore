@@ -15,3 +15,8 @@
 *.exe
 *.out
 *.app
+sha1base32
+syncstorage
+
+#scratch files
+*~
