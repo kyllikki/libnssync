@@ -8,6 +8,7 @@
 #include <jansson.h>
 
 #include "request.h"
+#include "auth.h"
 #include "storage.h"
 
 struct nssync_storage {
@@ -54,47 +55,52 @@ static int saprintf(char **str_out, const char *format, ...)
 }
 
 struct nssync_storage *
-nssync_storage_new(const char *server,
-		   const char *pathname,
-		   const char *username,
-		   const char *password)
+nssync_storage_new_auth(struct nssync_auth *auth, const char *pathname)
 {
+	char *server;
 	struct nssync_storage *newstore; /* new storage service */
 	const char *fmt;
+
+	server = nssync_auth_get_storage_server(auth);
+	if (server == NULL) {
+		return NULL;
+	}
 
 	newstore = calloc(1, sizeof(*newstore));
 	if (newstore == NULL) {
 		return NULL;
 	}
 
-	newstore->username = strdup(username);
-	newstore->password = strdup(password);
+	newstore->username = strdup(nssync_auth_get_username(auth));
+	newstore->password = strdup(nssync_auth_get_password(auth));
 
 	/* alter the format specifier depending on separator requirements */
 	if (server[strlen(server) - 1] ==  '/') {
-		if ((pathname[0] == 0) || 
+		if ((pathname[0] == 0) ||
 		    (pathname[strlen(pathname) - 1] == '/')) {
 			fmt = "%s%s1.1/%s";
 		} else {
-			fmt = "%s%s/1.1/%s";			
+			fmt = "%s%s/1.1/%s";
 		}
 	} else {
-		if ((pathname[0] == 0) || 
+		if ((pathname[0] == 0) ||
 		    (pathname[strlen(pathname) - 1] == '/')) {
 			fmt = "%s/%s1.1/%s";
 		} else {
-			fmt = "%s/%s/1.1/%s";			
+			fmt = "%s/%s/1.1/%s";
 		}
 	}
 
-	if (saprintf(&newstore->base, fmt, server, pathname, username) < 0) {
-		free(newstore);
+	if (saprintf(&newstore->base, fmt, server, pathname,
+		     newstore->username) < 0) {
+		nssync_storage_free(newstore);
 		return NULL;
 	}
 
 	return newstore;
 
 }
+
 
 int
 nssync_storage_free(struct nssync_storage *store)
