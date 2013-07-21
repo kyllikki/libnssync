@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
 {
 	json_t *root;
 	json_error_t error;
+	int ret;
 
 	struct nssync_auth *auth;
 	struct nssync_storage *store;
@@ -24,10 +25,14 @@ int main(int argc, char *argv[])
 
 	auth = nssync_auth_new(AUTH_SERVER, ACCOUNT_NAME, argv[1]);
 
-	store = nssync_storage_new_auth(auth, "");
+	ret = nssync_storage_new(auth, "", &store);
+	if (ret != 0) {
+		fprintf(stderr, "unable to create storage object: %d\n", ret);
+		return 1;
+	}
 
-	obj = nssync_storage_obj_fetch(store, "storage/meta/global");
-	if (obj == NULL) {
+	ret = nssync_storage_obj_fetch(store, "storage/meta/global", &obj);
+	if (ret != 0) {
 		fprintf(stderr, "unable to retrive global object\n");
 		return 1;
 	}

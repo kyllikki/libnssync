@@ -11,11 +11,19 @@
 #include "auth.h"
 #include "storage.h"
 
+struct nssync_storage_collection {
+	char *name;
+	time_t modified;
+};
+
 struct nssync_storage {
 	char *username;
 	char *password;
 
 	char *base;
+
+	int collectionc;
+	struct nssync_storage_collection *collections;
 };
 
 struct nssync_storage_obj {
@@ -54,21 +62,26 @@ static int saprintf(char **str_out, const char *format, ...)
 	return slen;
 }
 
-struct nssync_storage *
-nssync_storage_new_auth(struct nssync_auth *auth, const char *pathname)
+
+int
+nssync_storage_new(struct nssync_auth *auth,
+		   const char *pathname,
+		   struct nssync_storage **store_out)
 {
 	char *server;
 	struct nssync_storage *newstore; /* new storage service */
 	const char *fmt;
+	char *url;
+	char *reply;
 
 	server = nssync_auth_get_storage_server(auth);
 	if (server == NULL) {
-		return NULL;
+		return -1;
 	}
 
 	newstore = calloc(1, sizeof(*newstore));
 	if (newstore == NULL) {
-		return NULL;
+		return -1;
 	}
 
 	newstore->username = strdup(nssync_auth_get_username(auth));
@@ -94,11 +107,26 @@ nssync_storage_new_auth(struct nssync_auth *auth, const char *pathname)
 	if (saprintf(&newstore->base, fmt, server, pathname,
 		     newstore->username) < 0) {
 		nssync_storage_free(newstore);
-		return NULL;
+		return -1;
 	}
 
-	return newstore;
+	/* fetch the collection information */
+	if (saprintf(&url, "%s/info/collections", newstore->base) < 0) {
+		nssync_storage_free(newstore);
+		return -1;
+	}
 
+	reply = nssync__request(url, newstore->username, newstore->password);
+	free(url);
+	if (reply == NULL) {
+		nssync_storage_free(newstore);
+		return -1;
+	}
+
+
+
+	*store_out = newstore;
+	return 0;
 }
 
 
@@ -112,8 +140,10 @@ nssync_storage_free(struct nssync_storage *store)
 	return 0;
 }
 
-struct nssync_storage_obj *
-nssync_storage_obj_fetch(struct nssync_storage *store, const char *path)
+int
+nssync_storage_obj_fetch(struct nssync_storage *store,
+			 const char *path,
+			 struct nssync_storage_obj **obj_out)
 {
 	struct nssync_storage_obj *obj;
 	char *reply;
@@ -122,24 +152,23 @@ nssync_storage_obj_fetch(struct nssync_storage *store, const char *path)
 	json_error_t error;
 	json_t *payload;
 
-	if (saprintf(&url, "%s/%s",
-		     store->base,path) < 0) {
-		return NULL;
+	if (saprintf(&url, "%s/%s", store->base, path) < 0) {
+		return -1;
 	}
 
-	/* printf("requesting:%s\n", url); */
+	//printf("requesting:%s\n", url);
 
 	reply = nssync__request(url, store->username, store->password);
 	free(url);
 	if (reply == NULL) {
-		return NULL;
+		return -1;
 	}
-	/* printf("%s\n\n", reply); */
+	//printf("%s\n\n", reply);
 
 	obj = calloc(1, sizeof(*obj));
 	if (obj == NULL) {
 		free(reply);
-		return NULL;
+		return -1;
 	}
 
 	root = json_loads(reply, 0, &error);
@@ -148,27 +177,29 @@ nssync_storage_obj_fetch(struct nssync_storage *store, const char *path)
 	if (!root) {
 		fprintf(stderr, "error: on line %d of reply: %s\n",
 			error.line, error.text);
-		return NULL;
+		return -1;
 	}
 
 	if(!json_is_object(root)) {
 		fprintf(stderr, "error: root is not an object\n");
 		json_decref(root);
-		return NULL;
+		return -1;
 	}
 
 	payload = json_object_get(root, "payload");
 	if (!json_is_string(payload)) {
 		fprintf(stderr, "error: payload is not a string\n");
 		json_decref(root);
-		return NULL;
+		return -1;
 	}
 
 	obj->payload = strdup(json_string_value(payload));
 
 	json_decref(root);
 
-	return obj;
+	*obj_out = obj;
+
+	return 0;
 }
 
 int
