@@ -7,4 +7,19 @@ USERID=$(./sha1base32 ${USERNAME})
 
 STORAGE_SERVER=$(curl -s "https://auth.services.mozilla.com/user/1.0/${USERID}/node/weave")
 
-curl "${STORAGE_SERVER}1.1/${USERID}/storage/meta/global?full=1" --basic -u ${USERID}:${PASSWORD}
+COLLECTIONS=$(curl "${STORAGE_SERVER}1.1/${USERID}/info/collections" --basic -u ${USERID}:${PASSWORD})
+
+META_GLOBAL=$(curl "${STORAGE_SERVER}1.1/${USERID}/storage/meta/global" --basic -u ${USERID}:${PASSWORD})
+
+BOOKMARKS_COLLECTION=$(curl "${STORAGE_SERVER}1.1/${USERID}/storage/bookmarks" --basic -u ${USERID}:${PASSWORD})
+
+STORE_OBJ=$(curl "${STORAGE_SERVER}1.1/${USERID}/storage/bookmarks/-NuNnJomUB6a" --basic -u ${USERID}:${PASSWORD})
+
+echo ${COLLECTIONS}
+echo
+echo ${META_GLOBAL}
+echo
+echo ${BOOKMARKS_COLLECTION}
+echo
+echo ${STORE_OBJ}
+

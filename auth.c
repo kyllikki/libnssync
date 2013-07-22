@@ -10,6 +10,7 @@
 #include "base32.h"
 #include "request.h"
 
+#include "nssync_error.h"
 #include "auth.h"
 
 struct nssync_auth {
@@ -81,14 +82,17 @@ char *moz_sync_username_from_accountname(const char *accountname)
 }
 
 /* exported interface documented in auth.h */
-struct nssync_auth *
-nssync_auth_new(const char *server, const char *account, const char *password)
+enum nnsync_error
+nssync_auth_new(const char *server,
+		const char *account,
+		const char *password,
+		struct nssync_auth **auth_out)
 {
 	struct nssync_auth *newauth;
 
 	newauth = calloc(1, sizeof(*newauth));
 	if (newauth == NULL) {
-		return NULL;
+		return NSSYNC_ERROR_NOMEM;
 	}
 
 	newauth->server = strdup(server);
@@ -98,14 +102,15 @@ nssync_auth_new(const char *server, const char *account, const char *password)
 	newauth->username = moz_sync_username_from_accountname(account);
 	if (newauth->username == NULL) {
 		nssync_auth_free(newauth);
-		return NULL;
+		return NSSYNC_ERROR_NOMEM;
 	}
 
-	return newauth;
+	*auth_out = newauth;
+	return NSSYNC_ERROR_OK;
 }
 
 /* exported interface documented in auth.h */
-int
+enum nnsync_error
 nssync_auth_free(struct nssync_auth *auth)
 {
 	free(auth->username);
@@ -115,7 +120,7 @@ nssync_auth_free(struct nssync_auth *auth)
 
 	free(auth);
 
-	return 0;
+	return NSSYNC_ERROR_OK;
 }
 
 #define URL_SIZE 256
