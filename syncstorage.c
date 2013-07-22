@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = nssync_storage_obj_fetch(store, "storage/meta/global", &obj);
+	ret = nssync_storage_obj_fetch(store, "meta", "global", &obj);
 	if (ret != 0) {
 		fprintf(stderr, "unable to retrive global object\n");
 		return 1;

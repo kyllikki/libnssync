@@ -62,6 +62,55 @@ static int saprintf(char **str_out, const char *format, ...)
 	return slen;
 }
 
+static int fetch_collections(struct nssync_storage *store)
+{
+	char *url;
+	char *reply;
+	json_t *root;
+	json_error_t error;
+	const char *key;
+	json_t *value;
+	int colidx; /* collection index */
+
+	if (saprintf(&url, "%s/info/collections", store->base) < 0) {
+		return -1;
+	}
+
+	reply = nssync__request(url, store->username, store->password);
+	free(url);
+	if (reply == NULL) {
+		return -1;
+	}
+
+
+	root = json_loads(reply, 0, &error);
+	free(reply);
+
+	store->collectionc = json_object_size(root);
+	if (store->collectionc == 0) {
+		fprintf(stderr, "error: root is not an object\n");
+		json_decref(root);
+		return -1;
+	}
+
+	store->collections = calloc(store->collectionc,
+				    sizeof(struct nssync_storage_collection));
+	if (store->collections == NULL) {
+		return -1;
+	}
+
+	colidx = 0;
+	json_object_foreach(root, key, value) {
+		store->collections[colidx].name = strdup(key);
+		store->collections[colidx].modified = json_real_value(value);
+		colidx++;
+	}
+
+	json_decref(root);
+
+	return 0;
+}
+
 
 int
 nssync_storage_new(struct nssync_auth *auth,
@@ -71,8 +120,7 @@ nssync_storage_new(struct nssync_auth *auth,
 	char *server;
 	struct nssync_storage *newstore; /* new storage service */
 	const char *fmt;
-	char *url;
-	char *reply;
+	int ret;
 
 	server = nssync_auth_get_storage_server(auth);
 	if (server == NULL) {
@@ -111,17 +159,12 @@ nssync_storage_new(struct nssync_auth *auth,
 	}
 
 	/* fetch the collection information */
-	if (saprintf(&url, "%s/info/collections", newstore->base) < 0) {
+	ret = fetch_collections(newstore);
+	if (ret != 0) {
 		nssync_storage_free(newstore);
-		return -1;
+		return ret;
 	}
 
-	reply = nssync__request(url, newstore->username, newstore->password);
-	free(url);
-	if (reply == NULL) {
-		nssync_storage_free(newstore);
-		return -1;
-	}
 
 
 
@@ -140,9 +183,11 @@ nssync_storage_free(struct nssync_storage *store)
 	return 0;
 }
 
+
 int
 nssync_storage_obj_fetch(struct nssync_storage *store,
-			 const char *path,
+			 const char *collection,
+			 const char *object,
 			 struct nssync_storage_obj **obj_out)
 {
 	struct nssync_storage_obj *obj;
@@ -152,7 +197,7 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 	json_error_t error;
 	json_t *payload;
 
-	if (saprintf(&url, "%s/%s", store->base, path) < 0) {
+	if (saprintf(&url, "%s/storage/%s/%s", store->base, collection, object) < 0) {
 		return -1;
 	}
 
