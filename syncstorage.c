@@ -3,9 +3,6 @@
 #include "nssync_error.h"
 #include "sync.h"
 
-#define AUTH_SERVER 
-#define ACCOUNT_NAME 
-
 int main(int argc, char *argv[])
 {
 	struct nssync_sync *sync;
