@@ -2,6 +2,10 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include <openssl/sha.h>
+#include <openssl/hmac.h>
 
 #include "base32.h"
 
@@ -95,13 +99,22 @@ int decode_sync_key(char *key, uint8_t **key_out)
 	return 0;
 }
 
-static void dkey(uint8_t *s)
+static void dskey(uint8_t *s)
 {
-	printf("%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x%x\n",
+	printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
 	       s[0], s[1], s[2], s[3],
 	       s[4], s[5], s[6], s[7],
 	       s[8], s[9], s[10], s[11],
 	       s[12], s[13], s[14], s[15]);
+}
+
+static void dkey(uint8_t *s)
+{
+	printf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+	       s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7],
+	       s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15],
+	       s[16], s[17], s[18], s[19], s[20], s[21], s[22], s[23],
+	       s[24], s[25], s[26], s[27], s[28], s[29], s[30], s[31]);
 }
 
 int main(int argc, char **argv)
@@ -114,8 +127,18 @@ int main(int argc, char **argv)
 	};
 	char *synckey_enc;
 	uint8_t *synckey_d;
+	const char *username="johndoe@example.com";
+	const char *hmac_input = "Sync-AES_256_CBC-HMAC256";
+//	const uint8_t *info="Sync-AES_256_CBC-HMAC256johndoe@example.com\x01";
+	char data[128];
+	int data_len;
+	uint8_t encryption_key[SHA256_DIGEST_LENGTH];
+	unsigned int encryption_key_len = SHA256_DIGEST_LENGTH;
 
-	dkey(synckey);
+	uint8_t hmac_key[SHA256_DIGEST_LENGTH];
+	unsigned int hmac_key_len = SHA256_DIGEST_LENGTH;
+
+	dskey(synckey);
 
 	encode_sync_key(synckey, &synckey_enc);
 
@@ -123,10 +146,27 @@ int main(int argc, char **argv)
 
 	decode_sync_key(synckey_enc, &synckey_d);
 
-	dkey(synckey_d);
+	dskey(synckey_d);
+
+	data_len = snprintf(data, 128, "%s%s%c", hmac_input, username, 1);
+
+	HMAC(EVP_sha256(), synckey_d, SYNC_KEY_LEN, data, data_len, encryption_key, &encryption_key_len);
+
+	dkey(encryption_key);
+
+	memcpy(data, encryption_key, encryption_key_len);
+	data_len = encryption_key_len + snprintf(data + encryption_key_len, 
+			    128 - encryption_key_len, 
+			    "%s%s%c", hmac_input, username, 2);
+	HMAC(EVP_sha256(), synckey_d, SYNC_KEY_LEN, data, data_len, hmac_key, &hmac_key_len);
+
+
+	dkey(hmac_key);
+
 
 	free(synckey_enc);
 	free(synckey_d);
 
 	return 0;
 }
+
