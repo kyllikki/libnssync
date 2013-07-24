@@ -62,17 +62,9 @@ b32_8to5(int in)
 	return rev32[in];
 }
 
+/* exported interface documented in base32.h */
 int 
 base32_encode(char *buf, size_t *buflen, const void *data, size_t size)
-/*
- * Fills *buf with max. *buflen characters, encoding size bytes of *data.
- *
- * NOTE: *buf space should be at least 1 byte _more_ than *buflen
- * to hold the trailing '\0'.
- *
- * return value    : #bytes filled in buf   (excluding \0)
- * sets *buflen to : #bytes encoded from data
- */
 {
 	unsigned char *udata = (unsigned char *) data;
 	int iout = 0;	/* to-be-filled output char */
@@ -153,19 +145,9 @@ base32_encode(char *buf, size_t *buflen, const void *data, size_t size)
 
 #define REV32(x) rev32[(int) (x)]
 
+/* exported interface documented in base32.h */
 int
-base32_decode(void *buf, size_t *buflen, const char *str, size_t slen)
-/*
- * Fills *buf with max. *buflen bytes, decoded from slen chars in *str.
- * Decoding stops early when *str contains \0.
- * Illegal encoded chars are assumed to decode to zero.
- *
- * NOTE: *buf space should be at least 1 byte _more_ than *buflen
- * to hold a trailing '\0' that is added (though *buf will usually
- * contain full-binary data).
- *
- * return value    : #bytes filled in buf   (excluding \0)
- */
+base32_decode(void *buf, size_t buflen, const char *str, size_t slen)
 {
 	unsigned char *ubuf = (unsigned char *) buf;
 	int iout = 0;	/* to-be-filled output byte */
@@ -177,7 +159,7 @@ base32_decode(void *buf, size_t *buflen, const char *str, size_t slen)
 	   better(!) when using simplistic array indexing. */
 
 	while (1) {
-		if (iout >= *buflen || iin + 1 >= slen ||
+		if (iout >= buflen || iin + 1 >= slen ||
 		    str[iin] == '\0' || str[iin + 1] == '\0')
 			break;
 		ubuf[iout] = ((REV32(str[iin]) & 0x1f) << 3) | 
@@ -185,7 +167,7 @@ base32_decode(void *buf, size_t *buflen, const char *str, size_t slen)
 		iin++;  		/* 0 used up, iin=1 */
 		iout++;
 
-		if (iout >= *buflen || iin + 2 >= slen ||
+		if (iout >= buflen || iin + 2 >= slen ||
 		    str[iin] == '\0' || str[iin + 1] == '\0' ||
 		    str[iin + 2] == '\0')
 			break;
@@ -195,7 +177,7 @@ base32_decode(void *buf, size_t *buflen, const char *str, size_t slen)
 		iin += 2;  		/* 1,2 used up, iin=3 */
 		iout++;
 
-		if (iout >= *buflen || iin + 1 >= slen ||
+		if (iout >= buflen || iin + 1 >= slen ||
 		    str[iin] == '\0' || str[iin + 1] == '\0')
 			break;
 		ubuf[iout] = ((REV32(str[iin]) & 0x0f) << 4) |
@@ -203,7 +185,7 @@ base32_decode(void *buf, size_t *buflen, const char *str, size_t slen)
 		iin++;  		/* 3 used up, iin=4 */
 		iout++;
 
-		if (iout >= *buflen || iin + 2 >= slen ||
+		if (iout >= buflen || iin + 2 >= slen ||
 		    str[iin] == '\0' || str[iin + 1] == '\0' ||
 		    str[iin + 2] == '\0')
 			break;
@@ -213,7 +195,7 @@ base32_decode(void *buf, size_t *buflen, const char *str, size_t slen)
 		iin += 2;  		/* 4,5 used up, iin=6 */
 		iout++;
 
-		if (iout >= *buflen || iin + 1 >= slen ||
+		if (iout >= buflen || iin + 1 >= slen ||
 		    str[iin] == '\0' || str[iin + 1] == '\0')
 			break;
 		ubuf[iout] = ((REV32(str[iin]) & 0x07) << 5) |
@@ -221,8 +203,6 @@ base32_decode(void *buf, size_t *buflen, const char *str, size_t slen)
 		iin += 2;  		/* 6,7 used up, iin=8 */
 		iout++;
 	}
-
-	ubuf[iout] = '\0';
 
 	return iout;
 }

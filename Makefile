@@ -12,11 +12,14 @@ LIBNSSYNC_OBJ=base32.o request.o storage.o auth.o sync.o
 
 .PHONY:all
 
-all:sha1base32 syncstorage
+all:sha1base32 syncstorage synckey
 
 sha1base32:base32.o sha1base32.o #sha1.o
+
+synckey:synckey.o base32.o
 
 syncstorage:syncstorage.o $(LIBNSSYNC_OBJ)
 
 clean:
-	${RM} syncstorage.o syncstorage sha1base32 sha1.o $(LIBNSSYNC_OBJ)
+	${RM} syncstorage.o syncstorage sha1base32 sha1.o synckey synckey.o 
+	${RM} $(LIBNSSYNC_OBJ)
