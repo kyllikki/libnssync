@@ -8,7 +8,7 @@ LDFLAGS_LIBJANSSON:=$(shell pkg-config --libs openssl jansson libcurl)
 CFLAGS += $(CFLAGS_LIBJANSSON) -Wall -g -O2
 LDFLAGS += $(LDFLAGS_LIBJANSSON)
 
-LIBNSSYNC_OBJ=base32.o request.o storage.o auth.o sync.o
+LIBNSSYNC_OBJ=base32.o base64.o request.o storage.o auth.o sync.o
 
 .PHONY:all
 
@@ -16,7 +16,7 @@ all:sha1base32 syncstorage synckey
 
 sha1base32:base32.o sha1base32.o #sha1.o
 
-synckey:synckey.o base32.o
+synckey:synckey.o $(LIBNSSYNC_OBJ)
 
 syncstorage:syncstorage.o $(LIBNSSYNC_OBJ)
 
