@@ -11,6 +11,7 @@
 
 #include "base32.h"
 #include "base64.h"
+#include "hex.h"
 
 #define SYNCKEY_LENGTH 16
 #define BASE32_SYNCKEY_LENGTH 26
@@ -189,11 +190,12 @@ int main(int argc, char **argv)
 	uint8_t *synckey;
 	const char *example_username="johndoe@example.com";
 	struct nssync_crypto_keybundle *sync_keybundle;
-	const char *synckey_accountname = "vince@kyllikki.org";
+//	const char *synckey_accountname = "vince@kyllikki.org";
+	const char *synckey_accountname = "pnaksjwjnjiepjumadlhvtn44jrs44uf";
 	const char *synckey_encoded = "i-xsxyz-wd3yj-5ytjx-9i7mj-wiwyy";
 	const char *ciphertext_b64 = "Hpdf65sSxNzB6sbQzeAcp6CKRhN/mMi2WdM9c39rS2bDStkutQvMoW4l/hHOxAoRVgNWYKPYeY0LeYJX231xXvUqgw6o8/loO8tHxEMC8VQGR5hRuf0ya2ZgCqzarUGaCJljCBy981o8vIAEi26l0SX1XnqV6OAVVu9lKx+1TP+tZzYs0sDDHoKfG3tM8Cho/WRKemQWoGvW/mYs10jiKw==";
 	const char *iv_b64="VmXHMMKy8mqVPpEfAlQ4vg==";
-	const char *hmac_b64 = "10462b667bba107d1334424117c2a5ce4f465a01c0a91c4f3e5827fd3bfb87d4";
+	const char *hmac_hex = "10462b667bba107d1334424117c2a5ce4f465a01c0a91c4f3e5827fd3bfb87d4";
 	uint8_t *iv;
 	uint8_t *hmac;
 
@@ -236,7 +238,7 @@ int main(int argc, char **argv)
 	size_t output_length;
 	iv = base64_decode((uint8_t *)iv_b64, strlen(iv_b64), &output_length);
 	printf("iv length %d\n", output_length);
-	hmac = base64_decode((uint8_t *)hmac_b64, strlen(hmac_b64), &output_length);
+	hmac = hex16_decode((uint8_t *)hmac_hex, strlen(hmac_hex), &output_length);
 	printf("hmac length %d\n", output_length);
 
 	dskey(iv);
@@ -252,9 +254,27 @@ int main(int argc, char **argv)
 
 	dkey(local_hmac);
 
-
 	free(sync_keybundle);
 	free(synckey);
+
+	printf("test encipher\n");
+
+	const char *ex_ciphertext_b64 = "wcgqzENt5iXt9/7KPJ3rTA==";
+	uint8_t ex_hmac_key[32] = { 0x2c,0x5d,0x98,0x09,0x2d,0x50,0x0a,0x04,0x8d,0x09,0xfd,0x01,0x09,0x0b,0xd0,0xd3,0xa4,0x86,0x1f,0xc8,0xea,0x24,0x38,0xbd,0x74,0xa8,0xf4,0x3b,0xe6,0xf4,0x7f,0x02 };
+	uint8_t *ex_ciphertext;
+	ex_ciphertext = base64_decode((uint8_t *)ex_ciphertext_b64, strlen(ex_ciphertext_b64), &output_length);
+
+	dskey(ex_ciphertext);
+	dkey(ex_hmac_key);
+
+	HMAC(EVP_sha256(), 
+	     ex_hmac_key, SHA256_DIGEST_LENGTH, 
+	     (uint8_t *)ex_ciphertext_b64, strlen(ex_ciphertext_b64),
+	     local_hmac, &local_hmac_key_len);
+
+	dkey(local_hmac);
+
+
 
 
 
