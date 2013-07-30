@@ -82,7 +82,7 @@ char *moz_sync_username_from_accountname(const char *accountname)
 }
 
 /* exported interface documented in auth.h */
-enum nnsync_error
+enum nssync_error
 nssync_auth_new(const char *server,
 		const char *account,
 		const char *password,
@@ -110,7 +110,7 @@ nssync_auth_new(const char *server,
 }
 
 /* exported interface documented in auth.h */
-enum nnsync_error
+enum nssync_error
 nssync_auth_free(struct nssync_auth *auth)
 {
 	free(auth->username);

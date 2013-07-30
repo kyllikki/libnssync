@@ -37,7 +37,7 @@ struct nssync_sync {
  * engines in the sync protocol are the versioning infomation for how
  * to interpret the objects held in each collection type.
  */
-static enum nnsync_error
+static enum nssync_error
 get_engines(json_t *enginej,
 	    int *enginec_out,
 	    struct nssync_sync_engine **engines_out)
@@ -81,11 +81,11 @@ get_engines(json_t *enginej,
 	return NSSYNC_ERROR_OK;
 }
 
-enum nnsync_error
+enum nssync_error
 nssync_sync_new(const struct nssync_provider *provider,
 		struct nssync_sync **sync_out)
 {
-	enum nnsync_error ret;
+	enum nssync_error ret;
 	struct nssync_sync *newsync;
 
 	json_t *value;
@@ -172,7 +172,7 @@ nssync_sync_new(const struct nssync_provider *provider,
 	return NSSYNC_ERROR_OK;
 }
 
-enum nnsync_error
+enum nssync_error
 nssync_sync_free(struct nssync_sync *sync)
 {
 	nssync_storage_obj_free(sync->metaglobal_obj);

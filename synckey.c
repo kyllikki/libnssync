@@ -9,100 +9,7 @@
 #include <openssl/aes.h>
 
 #include "nssync.h"
-
-#include "base32.h"
-#include "base64.h"
-#include "hex.h"
-
-#define SYNCKEY_LENGTH 16
-#define BASE32_SYNCKEY_LENGTH 26
-#define ENCODED_SYNCKEY_LENGTH 31
-
-static char tofriendly(int val)
-{
-	char c = tolower(val);
-	if (c == 'l')
-		c = '8';
-	if (c == 'o')
-		c = '9';
-	if (c == '=')
-		c = 0;
-	return c;
-}
-
-int nssync_crypto_synckey_encode(const uint8_t *key, char **key_out)
-{
-	char *genkey;
-	char key32[BASE32_SYNCKEY_LENGTH + 1];
-	int key32idx = 0;
-	size_t buflen = sizeof(key32);
-	int keyidx = 0;
-	int idx;
-
-	base32_encode(key32, &buflen, key, SYNCKEY_LENGTH);
-
-	genkey = malloc(ENCODED_SYNCKEY_LENGTH + 1); /* allow for zero pad */
-	if (genkey == NULL) {
-		return -1;
-	}
-
-	genkey[keyidx++] = tofriendly(key32[key32idx++]);
-	while (keyidx < ENCODED_SYNCKEY_LENGTH) {
-		genkey[keyidx++] = '-';
-		for (idx=0; idx < 5; idx++) {
-			genkey[keyidx++] = tofriendly(key32[key32idx++]);
-		}
-	}
-	genkey[keyidx++] = 0;
-	*key_out = genkey;
-
-	return 0;
-}
-
-static char fromfriendly(int val)
-{
-	char c = toupper(val);
-	if (c == '8')
-		c = 'L';
-	if (c == '9')
-		c = 'O';
-	if (c == '-')
-		c = 0;
-	return c;
-}
-
-int nssync_crypto_synckey_decode(const char *key, uint8_t **key_out)
-{
-	uint8_t *synckey;
-	char key32[BASE32_SYNCKEY_LENGTH + 1];
-	int key32idx = 0;
-	int keyidx = 0;
-	int ret;
-
-	synckey = malloc(SYNCKEY_LENGTH);
-	if (synckey == NULL) {
-		return -1;
-	}
-
-	while ((key32idx < BASE32_SYNCKEY_LENGTH) &&
-	       (key[keyidx] != 0)) {
-		key32[key32idx] = fromfriendly(key[keyidx++]);
-		if (key32[key32idx] != 0) {
-			key32idx++;
-		}
-	}
-	key32[key32idx] = 0;
-
-	ret = base32_decode(synckey, SYNCKEY_LENGTH, key32, BASE32_SYNCKEY_LENGTH);
-
-	if (ret != SYNCKEY_LENGTH) {
-		free(synckey);
-		return -2;
-	}
-	*key_out = synckey;
-
-	return 0;
-}
+#include "crypto.h"
 
 static void dskey(const uint8_t *s)
 {
@@ -122,70 +29,146 @@ static void dkey(const uint8_t *s)
 	       s[24], s[25], s[26], s[27], s[28], s[29], s[30], s[31]);
 }
 
-/** key bundle */
-struct nssync_crypto_keybundle {
-	uint8_t encryption[SHA256_DIGEST_LENGTH]; /* encryption key */
-	uint8_t hmac[SHA256_DIGEST_LENGTH]; /* HMAC verification key */
-};
-
-/* generate sync key bundle from the sync key
- *
- * @param sync_key The binary sync key
- * @param
- */
-enum nssync_error
-nssync_crypto_new_sync_keybundle(uint8_t *sync_key,
-				 const char *accountname,
-				 struct nssync_crypto_keybundle **keybundle_out)
+void spec_synckey_coding_test(void)
 {
-	struct nssync_crypto_keybundle *keybundle;
-	uint8_t data[128];
-	int data_len;
-	unsigned int encryption_key_len = SHA256_DIGEST_LENGTH;
-	unsigned int hmac_key_len = SHA256_DIGEST_LENGTH;
-	const char *hmac_input = "Sync-AES_256_CBC-HMAC256";
+	const uint8_t orig_synckey[] = {
+		0xc7,0x1a,0xa7,0xcb,0xd8,0xb8,0x2a,0x8f,
+		0xf6,0xed,0xa5,0x5c,0x39,0x47,0x9f,0xd2
+	};
+	const char *orig_synckey_user = "y-4nkps-6yxav-i75xn-uv9ds-r472i";
 
-	keybundle = calloc(1, sizeof(*keybundle));
-	if (keybundle == NULL) {
-		return NSSYNC_ERROR_NOMEM;
+	char *synckey_user;
+	uint8_t *synckey;
+
+	printf("Sync key encoding:");
+	if (nssync_crypto_synckey_encode(orig_synckey, &synckey_user) == NSSYNC_ERROR_OK) {
+
+		if (strcmp(synckey_user, orig_synckey_user) != 0) {
+			printf("incorrect value\ngenerated %s (should be %s)\n",
+			       synckey_user, orig_synckey_user);
+		} else {
+			printf("passed\n");
+		}
+		free(synckey_user);
+	} else {
+		printf("failed\n");
 	}
 
-	/* build the data to be hashed with the HMAC process to
-	 * generate encryption key part of bundle
-	 */
-	data_len = snprintf((char*)data, 128, "%s%s%c", hmac_input, accountname, 1);
 
-	HMAC(EVP_sha256(),
-	     sync_key, SYNCKEY_LENGTH,
-	     data, data_len,
-	     keybundle->encryption, &encryption_key_len);
+	printf("Sync key decoding:");
+	if (nssync_crypto_synckey_decode(orig_synckey_user, &synckey) == NSSYNC_ERROR_OK) {
+		if (memcmp(orig_synckey, synckey, 16) != 0) {
+			printf("incorrect value\n");
+			dskey(synckey);
+			dskey(orig_synckey);
+		} else {
+			printf("passed\n");
+		}
+		free(synckey);
+	} else {
+		printf("failed\n");
+	}
+}
 
-	/* build the data to be hashed with the HMAC process to
-	 * generate hmac key part of bundle
-	 */
-	memcpy(data, keybundle->encryption, encryption_key_len);
-	data_len = encryption_key_len +
-		snprintf((char*)data + encryption_key_len,
-			 128 - encryption_key_len,
-			 "%s%s%c",
-			 hmac_input, accountname, 2);
+void spec_sync_keybundle_test(void)
+{
+	const char *orig_username = "johndoe@example.com"; /* this example is badly misleading as the shar256 base32 username must be used in reality */
+	const uint8_t orig_synckey[] = {
+		0xc7,0x1a,0xa7,0xcb,0xd8,0xb8,0x2a,0x8f,
+		0xf6,0xed,0xa5,0x5c,0x39,0x47,0x9f,0xd2
+	};
+	const uint8_t orig_hmac[] = {
+		0xbf,0x9e,0x48,0xac,0x50,0xa2,0xfc,0xc4,0x00,0xae,0x4d,0x30,0xa5,0x8d,0xc6,0xa8,0x3a,0x77,0x20,0xc3,0x2f,0x58,0xc6,0x0f,0xd9,0xd0,0x2d,0xb1,0x6e,0x40,0x62,0x16
+	};
+	const uint8_t orig_encryption[] = {
+		0x8d,0x07,0x65,0x43,0x0e,0xa0,0xd9,0xdb,0xd5,0x3c,0x53,0x6c,0x6c,0x5c,0x4c,0xb6,0x39,0xc0,0x93,0x07,0x5e,0xf2,0xbd,0x77,0xcd,0x30,0xcf,0x48,0x51,0x38,0xb9,0x05
+	};
 
-	HMAC(EVP_sha256(),
-	     sync_key, SYNCKEY_LENGTH,
-	     data, data_len,
-	     keybundle->hmac, &hmac_key_len);
+	struct nssync_crypto_keybundle *sync_keybundle;
+	uint8_t *encryption;
+	uint8_t *hmac;
+	size_t length;
 
-	*keybundle_out = keybundle;
-	return NSSYNC_ERROR_OK;
+	printf("Sync keybundle creation:");
+
+	if (nssync_crypto_keybundle_new_synckey(orig_synckey,
+						orig_username,
+						&sync_keybundle) == NSSYNC_ERROR_OK) {
+		printf("passed\nEncryption value:");
+
+		nssync_crypto_keybundle_get_encryption(sync_keybundle,
+						       &encryption,
+						       &length);
+		if (memcmp(orig_encryption, encryption, length) != 0) {
+			printf("incorrect\n");
+			dkey(encryption);
+			dkey(orig_encryption);
+		} else {
+			printf("correct\n");
+		}
+
+		printf("hmac value:");
+
+		nssync_crypto_keybundle_get_hmac(sync_keybundle,
+						 &hmac,
+						 &length);
+		if (memcmp(orig_hmac, hmac, length) != 0) {
+			printf("incorrect\n");
+			dkey(hmac);
+			dkey(orig_hmac);
+		} else {
+			printf("correct\n");
+		}
+
+		free(sync_keybundle);
+	} else {
+		printf("failed\n");
+	}
+}
+
+enum nssync_error local_sync_key_record_decode(void)
+{
+	const char *username = "pnaksjwjnjiepjumadlhvtn44jrs44uf";
+	const char *synckey_user = "i-xsxyz-wd3yj-5ytjx-9i7mj-wiwyy";
+	const char *record = "{\"ciphertext\":\"Hpdf65sSxNzB6sbQzeAcp6CKRhN/mMi2WdM9c39rS2bDStkutQvMoW4l/hHOxAoRVgNWYKPYeY0LeYJX231xXvUqgw6o8/loO8tHxEMC8VQGR5hRuf0ya2ZgCqzarUGaCJljCBy981o8vIAEi26l0SX1XnqV6OAVVu9lKx+1TP+tZzYs0sDDHoKfG3tM8Cho/WRKemQWoGvW/mYs10jiKw==\",\"IV\":\"VmXHMMKy8mqVPpEfAlQ4vg==\",\"hmac\":\"10462b667bba107d1334424117c2a5ce4f465a01c0a91c4f3e5827fd3bfb87d4\"}";
+	uint8_t *synckey;
+	struct nssync_crypto_keybundle *sync_keybundle;
+	enum nssync_error ret;
+	uint8_t *plaintext;
+	size_t plaintext_length;
+
+	printf("Sync keybundle create:");
+
+	ret = nssync_crypto_keybundle_new_user_synckey(synckey_user, username, &sync_keybundle);
+	if (ret != NSSYNC_ERROR_OK) {
+		printf("failed\n");
+		return ret;
+	}
+	printf("ok\n");
+
+	printf("Record decryption:");
+	ret = nssync_crypto_decrypt_record(record, sync_keybundle, &plaintext, &plaintext_length);
+	free(sync_keybundle);
+	if (ret != NSSYNC_ERROR_OK) {
+		printf("failed\n");
+		return ret;
+	}
+	printf("ok\n");
+
+	printf("%d:%s\n", plaintext_length, plaintext);
+	
+	return ret;
 }
 
 int main(int argc, char **argv)
 {
-	const uint8_t example_synckey[SYNCKEY_LENGTH]= { 0xc7,0x1a,0xa7,0xcb, 0xd8,0xb8,0x2a,0x8f, 0xf6,0xed,0xa5,0x5c,	0x39,0x47,0x9f,0xd2
-	};
+	spec_synckey_coding_test();
+	spec_sync_keybundle_test();
+	local_sync_key_record_decode();
+
+#if 0
 	char *synckey_enc;
 	uint8_t *synckey;
-	const char *example_username="johndoe@example.com";
 	struct nssync_crypto_keybundle *sync_keybundle;
 //	const char *synckey_accountname = "vince@kyllikki.org";
 	const char *synckey_username = "pnaksjwjnjiepjumadlhvtn44jrs44uf";
@@ -202,28 +185,6 @@ int main(int argc, char **argv)
 	unsigned int local_hmac_key_len = SHA256_DIGEST_LENGTH;
 	uint8_t local_hmac[SHA256_DIGEST_LENGTH]; /* HMAC verification key */
 
-	printf("username: %s\n", example_username);
-
-	dskey(example_synckey);
-
-	nssync_crypto_synckey_encode(example_synckey, &synckey_enc);
-
-	printf("%s\n", synckey_enc);
-
-	nssync_crypto_synckey_decode(synckey_enc, &synckey);
-
-	dskey(synckey);
-
-	nssync_crypto_new_sync_keybundle(synckey,
-					 example_username,
-					 &sync_keybundle);
-
-	dkey(sync_keybundle->encryption);
-	dkey(sync_keybundle->hmac);
-
-	free(sync_keybundle);
-	free(synckey_enc);
-	free(synckey);
 
 
 
@@ -307,7 +268,7 @@ int main(int argc, char **argv)
 
 
 
-
+#endif
 
 	return 0;
 }

@@ -10,7 +10,6 @@
 
 #include "nssync.h"
 
-#include "auth.h"
 #include "crypto.h"
 #include "base32.h"
 #include "base64.h"
@@ -124,13 +123,23 @@ nssync_crypto_synckey_decode(const char *key, uint8_t **key_out)
 }
 
 
-/* generate sync key bundle from the sync key
- *
- * @param sync_key The binary sync key
- * @param
- */
+enum nssync_error nssync_crypto_keybundle_new_user_synckey(const char *user_synckey, const char *accountname, struct nssync_crypto_keybundle **keybundle_out)
+{
+	enum nssync_error ret;
+	uint8_t *synckey;
+
+	ret = nssync_crypto_synckey_decode(user_synckey, &synckey);
+	if (ret != NSSYNC_ERROR_OK) {
+		return ret;
+	}
+
+	ret = nssync_crypto_keybundle_new_synckey(synckey, accountname, keybundle_out);
+	free(synckey);
+	return ret;
+}
+
 enum nssync_error
-nssync_crypto_new_sync_keybundle(uint8_t *sync_key,
+nssync_crypto_keybundle_new_synckey(const uint8_t *sync_key,
 				 const char *accountname,
 				 struct nssync_crypto_keybundle **keybundle_out)
 {
@@ -177,7 +186,6 @@ nssync_crypto_new_sync_keybundle(uint8_t *sync_key,
 
 enum nssync_error
 nssync_crypto_decrypt_record(const char *record,
-			     struct nssync_auth *auth,
 			     struct nssync_crypto_keybundle *keybundle,
 			     uint8_t **plaintext_out,
 			     size_t *plaintext_length_out)
@@ -311,6 +319,28 @@ nssync_crypto_decrypt_record(const char *record,
 
 	*plaintext_out = plaintext;
 	*plaintext_length_out = ciphertext_length;
+
+	return NSSYNC_ERROR_OK;
+}
+
+enum nssync_error
+nssync_crypto_keybundle_get_encryption(struct nssync_crypto_keybundle *keybundle, uint8_t **encryption_out, size_t *encryption_length_out)
+{
+	*encryption_out = keybundle->encryption;
+	if (encryption_length_out != NULL) {
+		*encryption_length_out = ENCRYPTION_KEY_LENGTH;
+	}
+
+	return NSSYNC_ERROR_OK;
+}
+
+enum nssync_error
+nssync_crypto_keybundle_get_hmac(struct nssync_crypto_keybundle *keybundle, uint8_t **hmac_out, size_t *hmac_length_out)
+{
+	*hmac_out = keybundle->hmac;
+	if (hmac_length_out != NULL) {
+		*hmac_length_out = HMAC_KEY_LENGTH;
+	}
 
 	return NSSYNC_ERROR_OK;
 }

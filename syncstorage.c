@@ -1,12 +1,13 @@
 #include <stdio.h>
 
-#include "nssync_error.h"
+#include "nssync.h"
+
 #include "sync.h"
 
 int main(int argc, char *argv[])
 {
 	struct nssync_sync *sync;
-	enum nnsync_error ret;
+	enum nssync_error ret;
 	struct nssync_provider provider = {
 		.type = NSSYNC_SERVICE_MOZILLA,
 		.params = {
