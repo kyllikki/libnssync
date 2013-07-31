@@ -10,6 +10,7 @@ enum nssync_error {
 	NSSYNC_ERROR_VERSION, /* unsupported protocol version */
 	NSSYNC_ERROR_PROTOCOL, /* protocol error (unexpected format etc.) */
 	NSSYNC_ERROR_HMAC, /* HMAC mismatch */
+	NSSYNC_ERROR_FETCH, /* https fetch error */
 };
 
 #endif

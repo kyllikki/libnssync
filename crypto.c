@@ -257,7 +257,7 @@ nssync_crypto_decrypt_record(const char *record,
 				   strlen(hmac_hex16),
 				   &record_hmac_length);
 	if (record_hmac_length != HMAC_KEY_LENGTH) {
-		debugf("record hmac length %d incorrect (should be %d)\n",
+		debugf("record hmac length %zu incorrect (should be %d)\n",
 			record_hmac_length, HMAC_KEY_LENGTH);
 		json_decref(root);
 		return NSSYNC_ERROR_PROTOCOL;
@@ -283,7 +283,7 @@ nssync_crypto_decrypt_record(const char *record,
 			   strlen(iv_b64),
 			   &iv_length);
 	if ((iv == NULL) || (iv_length != IV_LENGTH)) {
-		debugf("IV data was size %d (expected %d)\n",
+		debugf("IV data was size %zu (expected %d)\n",
 			iv_length, IV_LENGTH);
 		json_decref(root);
 		return NSSYNC_ERROR_PROTOCOL;

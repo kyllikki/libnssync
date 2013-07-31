@@ -7,6 +7,9 @@
 
 #include <jansson.h>
 
+#include "nssync.h"
+
+#include "crypto.h"
 #include "request.h"
 #include "auth.h"
 #include "storage.h"
@@ -28,10 +31,10 @@ struct nssync_storage {
 
 struct nssync_storage_obj {
 	char *id;
+	uint8_t *payload;
 	time_t modified;
 	int sortindex;
 	int ttl;
-	uint8_t *payload;
 };
 
 static int saprintf(char **str_out, const char *format, ...)
@@ -165,10 +168,8 @@ nssync_storage_new(struct nssync_auth *auth,
 		return ret;
 	}
 
-
-
-
 	*store_out = newstore;
+
 	return 0;
 }
 
@@ -180,16 +181,19 @@ nssync_storage_free(struct nssync_storage *store)
 	free(store->username);
 	free(store->password);
 	free(store);
+
 	return 0;
 }
 
 
-int
+enum nssync_error
 nssync_storage_obj_fetch(struct nssync_storage *store,
+			 struct nssync_crypto_keybundle *keybundle,
 			 const char *collection,
 			 const char *object,
 			 struct nssync_storage_obj **obj_out)
 {
+	enum nssync_error ret;
 	struct nssync_storage_obj *obj;
 	char *reply;
 	char *url;
@@ -198,53 +202,69 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 	json_t *payload;
 
 	if (saprintf(&url, "%s/storage/%s/%s", store->base, collection, object) < 0) {
-		return -1;
+		return NSSYNC_ERROR_NOMEM;
 	}
 
-	//printf("requesting:%s\n", url);
+	debugf("requesting:%s\n", url);
 
 	reply = nssync__request(url, store->username, store->password);
 	free(url);
 	if (reply == NULL) {
-		return -1;
+		return NSSYNC_ERROR_FETCH;
 	}
-	//printf("%s\n\n", reply);
+	//debugf("%s\n\n", reply);
 
 	obj = calloc(1, sizeof(*obj));
 	if (obj == NULL) {
 		free(reply);
-		return -1;
+		return NSSYNC_ERROR_NOMEM;
 	}
 
 	root = json_loads(reply, 0, &error);
 	free(reply);
 
 	if (!root) {
-		fprintf(stderr, "error: on line %d of reply: %s\n",
+		debugf("error: on line %d of reply: %s\n",
 			error.line, error.text);
-		return -1;
+		return NSSYNC_ERROR_PROTOCOL;
 	}
 
-	if(!json_is_object(root)) {
-		fprintf(stderr, "error: root is not an object\n");
+	if (!json_is_object(root)) {
+		debugf("error: root is not an object\n");
 		json_decref(root);
-		return -1;
+		return NSSYNC_ERROR_PROTOCOL;
 	}
 
 	payload = json_object_get(root, "payload");
 	if (!json_is_string(payload)) {
 		fprintf(stderr, "error: payload is not a string\n");
 		json_decref(root);
-		return -1;
+		return NSSYNC_ERROR_PROTOCOL;
 	}
 
-	obj->payload = strdup(json_string_value(payload));
+	if (keybundle == NULL) {
+		/* no decryption */
+		obj->payload = (uint8_t*)strdup(json_string_value(payload));
+		if (obj->payload == NULL) {
+			json_decref(root);
+			return NSSYNC_ERROR_NOMEM;
+		}
+	} else {
+		ret = nssync_crypto_decrypt_record(json_string_value(payload),
+						   keybundle,
+						   &obj->payload,
+						   NULL);
+		if (ret != NSSYNC_ERROR_OK) {
+			json_decref(root);
+			return ret;
+		}
+	}
 
 	json_decref(root);
 
 	*obj_out = obj;
 
-	return 0;
+	return NSSYNC_ERROR_OK;
 }
 
 int

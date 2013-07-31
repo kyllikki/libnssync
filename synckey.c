@@ -131,7 +131,6 @@ enum nssync_error local_sync_key_record_decode(void)
 	const char *username = "pnaksjwjnjiepjumadlhvtn44jrs44uf";
 	const char *synckey_user = "i-xsxyz-wd3yj-5ytjx-9i7mj-wiwyy";
 	const char *record = "{\"ciphertext\":\"Hpdf65sSxNzB6sbQzeAcp6CKRhN/mMi2WdM9c39rS2bDStkutQvMoW4l/hHOxAoRVgNWYKPYeY0LeYJX231xXvUqgw6o8/loO8tHxEMC8VQGR5hRuf0ya2ZgCqzarUGaCJljCBy981o8vIAEi26l0SX1XnqV6OAVVu9lKx+1TP+tZzYs0sDDHoKfG3tM8Cho/WRKemQWoGvW/mYs10jiKw==\",\"IV\":\"VmXHMMKy8mqVPpEfAlQ4vg==\",\"hmac\":\"10462b667bba107d1334424117c2a5ce4f465a01c0a91c4f3e5827fd3bfb87d4\"}";
-	uint8_t *synckey;
 	struct nssync_crypto_keybundle *sync_keybundle;
 	enum nssync_error ret;
 	uint8_t *plaintext;
@@ -155,7 +154,7 @@ enum nssync_error local_sync_key_record_decode(void)
 	}
 	printf("ok\n");
 
-	printf("%d:%s\n", plaintext_length, plaintext);
+	printf("%zu:%s\n", plaintext_length, plaintext);
 	
 	return ret;
 }

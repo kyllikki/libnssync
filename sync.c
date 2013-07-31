@@ -7,6 +7,7 @@
 
 #include "nssync.h"
 
+#include "crypto.h"
 #include "request.h"
 #include "auth.h"
 #include "storage.h"
@@ -81,16 +82,67 @@ get_engines(json_t *enginej,
 	return NSSYNC_ERROR_OK;
 }
 
+/** fetch and verify the metaglobal object
+ *
+ */
+static enum nssync_error metaglobal(struct nssync_sync *sync)
+{
+	enum nssync_error ret;
+
+	json_t *value;
+	json_t *root;
+	json_error_t error;
+
+	ret = nssync_storage_obj_fetch(sync->store,
+				       NULL,
+				       "meta", "global",
+				       &sync->metaglobal_obj);
+	if (ret != 0) {
+		debugf("unable to retrive metaglobal object\n");
+		return ret;
+	}
+
+	root = json_loads((char *)nssync_storage_obj_payload(sync->metaglobal_obj), 0, &error);
+
+	if (!root) {
+		debugf("error: on line %d: %s\n", error.line, error.text);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	if (!json_is_object(root)) {
+		debugf("error: root is not an object\n");
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	/* check storage version */
+	value = json_object_get(root, "storageVersion");
+	if (json_integer_value(value) != STORAGE_VERSION) {
+		return NSSYNC_ERROR_VERSION;
+	}
+
+	/* retrive syncid */
+	value = json_object_get(root, "syncID");
+	sync->metaglobal_syncid = strdup(json_string_value(value));
+
+	/* retrive data engines */
+	ret = get_engines(json_object_get(root, "engines"),
+			  &sync->enginec, &sync->engines);
+	if (ret != 0) {
+		debugf("error retriving engine data\n");
+		return ret;
+	}
+
+	json_decref(root);
+
+	return NSSYNC_ERROR_OK;
+}
+
 enum nssync_error
 nssync_sync_new(const struct nssync_provider *provider,
 		struct nssync_sync **sync_out)
 {
 	enum nssync_error ret;
 	struct nssync_sync *newsync;
-
-	json_t *value;
-	json_t *root;
-	json_error_t error;
 
 	if (provider->type != NSSYNC_SERVICE_MOZILLA) {
 		return NSSYNC_ERROR_INVAL;
@@ -113,59 +165,18 @@ nssync_sync_new(const struct nssync_provider *provider,
 	/* create data store connection using auth data */
 	ret = nssync_storage_new(newsync->auth, "", &newsync->store);
 	if (ret != NSSYNC_ERROR_OK) {
-		fprintf(stderr, "unable to create store: %d\n", ret);
+		debugf("unable to create store: %d\n", ret);
 		nssync_auth_free(newsync->auth);
 		free(newsync);
 		return ret;
 	}
 
-	/* fetch the metaglobal object and check values */
-	ret = nssync_storage_obj_fetch(newsync->store,
-				       "meta", "global",
-				       &newsync->metaglobal_obj);
-	if (ret != 0) {
-		debugf("unable to retrive metaglobal object\n");
+	ret = metaglobal(newsync);
+	if (ret != NSSYNC_ERROR_OK) {
+		debugf("error with metaglobal object: %d\n", ret);
 		nssync_sync_free(newsync);
 		return ret;
 	}
-
-	root = json_loads(nssync_storage_obj_payload(newsync->metaglobal_obj),
-			  0, &error);
-
-	if (!root) {
-		fprintf(stderr, "error: on line %d: %s\n",
-			error.line, error.text);
-		nssync_sync_free(newsync);
-		return NSSYNC_ERROR_PROTOCOL;
-	}
-
-	if (!json_is_object(root)) {
-		fprintf(stderr, "error: root is not an object\n");
-		nssync_sync_free(newsync);
-		return NSSYNC_ERROR_PROTOCOL;
-	}
-
-	/* cheack storage version */
-	value = json_object_get(root, "storageVersion");
-	if (json_integer_value(value) != STORAGE_VERSION) {
-		nssync_sync_free(newsync);
-		return NSSYNC_ERROR_VERSION;
-	}
-
-	/* retrive syncid */
-	value = json_object_get(root, "syncID");
-	newsync->metaglobal_syncid = strdup(json_string_value(value));
-
-	/* retrive data engines */
-	ret = get_engines(json_object_get(root, "engines"),
-			  &newsync->enginec, &newsync->engines);
-	if (ret != 0) {
-		debugf("error retriving engine data\n");
-		nssync_sync_free(newsync);
-		return ret;
-	}
-
-	json_decref(root);
 
 	*sync_out = newsync;
 
