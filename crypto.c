@@ -123,7 +123,59 @@ nssync_crypto_synckey_decode(const char *key, uint8_t **key_out)
 }
 
 
-enum nssync_error nssync_crypto_keybundle_new_user_synckey(const char *user_synckey, const char *accountname, struct nssync_crypto_keybundle **keybundle_out)
+enum nssync_error
+nssync_crypto_keybundle_new_b64(const char *key_b64,
+				const char *hmac_b64,
+				struct nssync_crypto_keybundle **keybundle_out)
+{
+	struct nssync_crypto_keybundle *keybundle;
+	size_t key_length;
+	size_t hmac_length;
+	uint8_t *key;
+	uint8_t *hmac;
+
+	key = base64_decode((uint8_t *)key_b64,
+			   strlen(key_b64),
+			   &key_length);
+
+	if ((key == NULL) || (key_length != ENCRYPTION_KEY_LENGTH)) {
+		free(key);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	hmac = base64_decode((uint8_t *)hmac_b64,
+			   strlen(hmac_b64),
+			   &hmac_length);
+
+
+	if ((hmac == NULL) || (hmac_length != HMAC_KEY_LENGTH)) {
+		free(key);
+		free(hmac);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	keybundle = calloc(1, sizeof(*keybundle));
+	if (keybundle == NULL) {
+		free(key);
+		free(hmac);
+		return NSSYNC_ERROR_NOMEM;
+	}
+
+	memcpy(keybundle->encryption, key, ENCRYPTION_KEY_LENGTH);
+	free(key);
+
+	memcpy(keybundle->hmac, hmac, HMAC_KEY_LENGTH);
+	free(hmac);
+
+	*keybundle_out = keybundle;
+
+	return NSSYNC_ERROR_OK;
+}
+
+enum nssync_error
+nssync_crypto_keybundle_new_user_synckey(const char *user_synckey,
+				 const char *accountname,
+				 struct nssync_crypto_keybundle **keybundle_out)
 {
 	enum nssync_error ret;
 	uint8_t *synckey;
@@ -140,8 +192,8 @@ enum nssync_error nssync_crypto_keybundle_new_user_synckey(const char *user_sync
 
 enum nssync_error
 nssync_crypto_keybundle_new_synckey(const uint8_t *sync_key,
-				 const char *accountname,
-				 struct nssync_crypto_keybundle **keybundle_out)
+			const char *accountname,
+			struct nssync_crypto_keybundle **keybundle_out)
 {
 	struct nssync_crypto_keybundle *keybundle;
 	uint8_t data[128];
@@ -183,6 +235,7 @@ nssync_crypto_keybundle_new_synckey(const uint8_t *sync_key,
 	*keybundle_out = keybundle;
 	return NSSYNC_ERROR_OK;
 }
+
 
 enum nssync_error
 nssync_crypto_decrypt_record(const char *record,
@@ -318,7 +371,9 @@ nssync_crypto_decrypt_record(const char *record,
 	free(iv);
 
 	*plaintext_out = plaintext;
-	*plaintext_length_out = ciphertext_length;
+	if (plaintext_length_out != NULL) {
+		*plaintext_length_out = ciphertext_length;
+	}
 
 	return NSSYNC_ERROR_OK;
 }

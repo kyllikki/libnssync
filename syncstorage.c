@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 				.server = "https://auth.services.mozilla.com/",
 				.account = "vince@kyllikki.org",
 				.password = argv[1],
-				.key = "y-4nkps-6yxav-i75xn-uv9ds-r472i",
+				.key = "i-xsxyz-wd3yj-5ytjx-9i7mj-wiwyy",
 			},
 		},
 	};

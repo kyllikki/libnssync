@@ -25,12 +25,16 @@ struct nssync_sync_engine {
 struct nssync_sync {
 	struct nssync_auth *auth;
 	struct nssync_storage *store;
+	struct nssync_crypto_keybundle *sync_keybundle;
 
 	struct nssync_storage_obj *metaglobal_obj;
 	char *metaglobal_syncid;
 
 	int enginec;
 	struct nssync_sync_engine *engines;
+
+	struct nssync_storage_obj *cryptokeys_obj;
+	struct nssync_crypto_keybundle *default_keybundle;
 };
 
 /* extract the data engine list from json object
@@ -85,7 +89,7 @@ get_engines(json_t *enginej,
 /** fetch and verify the metaglobal object
  *
  */
-static enum nssync_error metaglobal(struct nssync_sync *sync)
+static enum nssync_error meta_global(struct nssync_sync *sync)
 {
 	enum nssync_error ret;
 
@@ -137,6 +141,68 @@ static enum nssync_error metaglobal(struct nssync_sync *sync)
 	return NSSYNC_ERROR_OK;
 }
 
+
+/** fetch and verify the cryptokeys object
+ *
+ */
+static enum nssync_error crypto_keys(struct nssync_sync *sync)
+{
+	enum nssync_error ret;
+	struct nssync_storage_obj *cryptokeys_obj;
+
+	json_t *root;
+	json_error_t error;
+
+	json_t *value;
+	json_t *default_key;
+	json_t *default_hmac;
+
+	ret = nssync_storage_obj_fetch(sync->store,
+				       sync->sync_keybundle,
+				       "crypto", "keys",
+				       &cryptokeys_obj);
+	if (ret != 0) {
+		debugf("unable to retrive crypto/keys object\n");
+		return ret;
+	}
+
+	root = json_loads((char *)nssync_storage_obj_payload(cryptokeys_obj),
+			  0, &error);
+
+	if (!root) {
+		debugf("error: on line %d: %s\n", error.line, error.text);
+		free(cryptokeys_obj);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	if (!json_is_object(root)) {
+		debugf("error: root is not an object\n");
+		free(cryptokeys_obj);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	/* default keys */
+	value = json_object_get(root, "default");
+	if (!json_is_array(value)) {
+		free(cryptokeys_obj);
+		return NSSYNC_ERROR_VERSION;
+	}
+
+	default_key = json_array_get(value, 0);
+	default_hmac = json_array_get(value, 1);
+
+	ret = nssync_crypto_keybundle_new_b64(json_string_value(default_key),
+					      json_string_value(default_hmac),
+					      &sync->default_keybundle);
+
+
+	json_decref(root);
+
+	sync->cryptokeys_obj = cryptokeys_obj;
+
+	return NSSYNC_ERROR_OK;
+}
+
 enum nssync_error
 nssync_sync_new(const struct nssync_provider *provider,
 		struct nssync_sync **sync_out)
@@ -162,18 +228,35 @@ nssync_sync_new(const struct nssync_provider *provider,
 		return NSSYNC_ERROR_AUTH;
 	}
 
-	/* create data store connection using auth data */
-	ret = nssync_storage_new(newsync->auth, "", &newsync->store);
+	/* create sync key bundle */
+	ret = nssync_crypto_keybundle_new_user_synckey(provider->params.mozilla.key, nssync_auth_get_username(newsync->auth), &newsync->sync_keybundle);
 	if (ret != NSSYNC_ERROR_OK) {
-		debugf("unable to create store: %d\n", ret);
+		debugf("unable to create sync key: %d\n", ret);
 		nssync_auth_free(newsync->auth);
 		free(newsync);
 		return ret;
 	}
 
-	ret = metaglobal(newsync);
+	/* create data store connection using auth data */
+	ret = nssync_storage_new(newsync->auth, "", &newsync->store);
 	if (ret != NSSYNC_ERROR_OK) {
-		debugf("error with metaglobal object: %d\n", ret);
+		debugf("unable to create store: %d\n", ret);
+		nssync_auth_free(newsync->auth);
+		free(newsync->sync_keybundle);
+		free(newsync);
+		return ret;
+	}
+
+	ret = meta_global(newsync);
+	if (ret != NSSYNC_ERROR_OK) {
+		debugf("error with meta/global object: %d\n", ret);
+		nssync_sync_free(newsync);
+		return ret;
+	}
+
+	ret = crypto_keys(newsync);
+	if (ret != NSSYNC_ERROR_OK) {
+		debugf("error with crypto/keys object: %d\n", ret);
 		nssync_sync_free(newsync);
 		return ret;
 	}

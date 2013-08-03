@@ -7,6 +7,9 @@ enum nssync_error nssync_crypto_synckey_encode(const uint8_t *key, char **key_ou
 /* decode sync key from user format to binary */
 enum nssync_error nssync_crypto_synckey_decode(const char *key, uint8_t **key_out);
 
+/** create keybundle from base64 encoded values */
+enum nssync_error nssync_crypto_keybundle_new_b64(const char *keyb64, const char *hmacb64, struct nssync_crypto_keybundle **keybundle_out);
+
 /** create a new sync key bundle from a binary sync key
  *
  * @param sync_key The binary sync key
