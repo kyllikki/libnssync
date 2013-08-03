@@ -167,7 +167,7 @@ static enum nssync_error crypto_keys(struct nssync_sync *sync)
 	}
 
 	root = json_loads((char *)nssync_storage_obj_payload(cryptokeys_obj),
-			  0, &error);
+			  JSON_DISABLE_EOF_CHECK, &error);
 
 	if (!root) {
 		debugf("error: on line %d: %s\n", error.line, error.text);
@@ -181,7 +181,7 @@ static enum nssync_error crypto_keys(struct nssync_sync *sync)
 		return NSSYNC_ERROR_PROTOCOL;
 	}
 
-	/* default keys */
+	/* default keybundle */
 	value = json_object_get(root, "default");
 	if (!json_is_array(value)) {
 		free(cryptokeys_obj);
@@ -195,6 +195,7 @@ static enum nssync_error crypto_keys(struct nssync_sync *sync)
 					      json_string_value(default_hmac),
 					      &sync->default_keybundle);
 
+	/** @todo extract the keys from the "collections" object */
 
 	json_decref(root);
 
