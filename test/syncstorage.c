@@ -27,6 +27,9 @@ int main(int argc, char *argv[])
 	}
 
 	nssync_sync_free(sync);
+
+	printf("PASS\n");
+
 	return 0;
 
 }

@@ -165,6 +165,8 @@ int main(int argc, char **argv)
 	spec_sync_keybundle_test();
 	local_sync_key_record_decode();
 
+	printf("PASS\n");
+
 #if 0
 	char *synckey_enc;
 	uint8_t *synckey;

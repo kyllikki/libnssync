@@ -1,25 +1,47 @@
 #
+# Makefile for libnssync
 #
+# Copyright 2012 Vincent Sanders <vince@netsurf-browser.org>
 #
+# This file is part of libnssync
+# Released under the MIT License (see COPYING file)
 
-CFLAGS_LIBJANSSON:=$(shell pkg-config --cflags openssl jansson libcurl)
-LDFLAGS_LIBJANSSON:=$(shell pkg-config --libs openssl jansson libcurl)
+# Component settings
+COMPONENT := nssync
+COMPONENT_VERSION := 0.0.1
+# Default to a static library
+COMPONENT_TYPE ?= lib-static
 
-CFLAGS += $(CFLAGS_LIBJANSSON) -Wall -g -O2
-LDFLAGS += $(LDFLAGS_LIBJANSSON)
+# Setup the tooling
+PREFIX ?= /opt/netsurf
+NSSHARED ?= $(PREFIX)/share/netsurf-buildsystem
+include $(NSSHARED)/makefiles/Makefile.tools
 
-LIBNSSYNC_OBJ=base32.o base64.o hex.o request.o storage.o auth.o sync.o crypto.o
+TESTRUNNER := $(PERL) $(NSTESTTOOLS)/testrunner.pl
 
-.PHONY:all
+# Toolchain flags
+WARNFLAGS := -Wall -Wextra -Wundef -Wpointer-arith -Wcast-align \
+	-Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes \
+	-Wmissing-declarations -Wnested-externs -Werror
 
-all:sha1base32 syncstorage synckey
+CFLAGS := -g -std=c99 -D_BSD_SOURCE -D_POSIX_C_SOURCE=200112L \
+	-I$(CURDIR)/include/ -I$(CURDIR)/src $(WARNFLAGS) $(CFLAGS) -Wno-error
 
-sha1base32:base32.o sha1base32.o #sha1.o
+# openssl jansson libcurl
+ifneq ($(findstring clean,$(MAKECMDGOALS)),clean)
+  ifneq ($(PKGCONFIG),)
+    CFLAGS := $(CFLAGS) $(shell $(PKGCONFIG) openssl jansson libcurl --cflags)
+    LDFLAGS := $(LDFLAGS) $(shell $(PKGCONFIG) openssl jansson libcurl --libs)
+  else
+    CFLAGS := $(CFLAGS) -I$(PREFIX)/include
+    LDFLAGS := $(LDFLAGS) -lopenssl -ljansson -lcurl
+  endif
+endif
 
-synckey:synckey.o $(LIBNSSYNC_OBJ)
+include $(NSBUILD)/Makefile.top
 
-syncstorage:syncstorage.o $(LIBNSSYNC_OBJ)
-
-clean:
-	${RM} syncstorage.o syncstorage sha1base32 sha1.o synckey synckey.o 
-	${RM} $(LIBNSSYNC_OBJ)
+# Extra installation rules
+I := /include
+INSTALL_ITEMS := $(INSTALL_ITEMS) $(I):include/libnsfb.h
+INSTALL_ITEMS := $(INSTALL_ITEMS) /lib/pkgconfig:lib$(COMPONENT).pc.in
+INSTALL_ITEMS := $(INSTALL_ITEMS) /lib:$(OUTPUT)

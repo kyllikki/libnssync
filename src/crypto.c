@@ -13,7 +13,7 @@
 #include "crypto.h"
 #include "base32.h"
 #include "base64.h"
-#include "hex.h"
+#include "hex16.h"
 
 #define SYNCKEY_LENGTH 16
 #define BASE32_SYNCKEY_LENGTH 26

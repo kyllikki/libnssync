@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "hex.h"
+#include "hex16.h"
 
 uint8_t *hex16_encode(const unsigned char *data,
 		    size_t input_length,

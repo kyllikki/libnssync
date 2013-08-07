@@ -1,0 +1,9 @@
+# Index of testcases
+#
+# Test		Description				DataDir
+
+synckey		Check sync keybundle can be constructed
+syncstorage	Check storage can accessed
+
+# Regression tests
+
