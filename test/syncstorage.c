@@ -20,6 +20,11 @@ int main(int argc, char *argv[])
 		},
 	};
 
+	if (argc <= 1) {
+		fprintf(stderr, "Usage: %s <value>\n", argv[0]);
+		return 1;
+	}
+
 	ret = nssync_sync_new(&provider, &sync);
 	if (ret != NSSYNC_ERROR_OK) {
 		fprintf(stderr, "error (%d) creating sync\n", ret);

@@ -29,7 +29,7 @@ static void dkey(const uint8_t *s)
 	       s[24], s[25], s[26], s[27], s[28], s[29], s[30], s[31]);
 }
 
-void spec_synckey_coding_test(void)
+static void spec_synckey_coding_test(void)
 {
 	const uint8_t orig_synckey[] = {
 		0xc7,0x1a,0xa7,0xcb,0xd8,0xb8,0x2a,0x8f,
@@ -70,7 +70,7 @@ void spec_synckey_coding_test(void)
 	}
 }
 
-void spec_sync_keybundle_test(void)
+static void spec_sync_keybundle_test(void)
 {
 	const char *orig_username = "johndoe@example.com"; /* this example is badly misleading as the shar256 base32 username must be used in reality */
 	const uint8_t orig_synckey[] = {
@@ -126,7 +126,7 @@ void spec_sync_keybundle_test(void)
 	}
 }
 
-enum nssync_error local_sync_key_record_decode(void)
+static enum nssync_error local_sync_key_record_decode(void)
 {
 	const char *username = "pnaksjwjnjiepjumadlhvtn44jrs44uf";
 	const char *synckey_user = "i-xsxyz-wd3yj-5ytjx-9i7mj-wiwyy";

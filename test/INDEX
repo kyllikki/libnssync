@@ -2,8 +2,9 @@
 #
 # Test		Description				DataDir
 
+#sha1base32	SHA1 and base32 encode value
 synckey		Check sync keybundle can be constructed
-syncstorage	Check storage can accessed
+#syncstorage	Check storage can accessed
 
 # Regression tests
 

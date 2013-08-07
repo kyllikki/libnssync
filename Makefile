@@ -22,7 +22,7 @@ TESTRUNNER := $(PERL) $(NSTESTTOOLS)/testrunner.pl
 # Toolchain flags
 WARNFLAGS := -Wall -Wextra -Wundef -Wpointer-arith -Wcast-align \
 	-Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes \
-	-Wmissing-declarations -Wnested-externs -Werror
+	-Wmissing-declarations -Wnested-externs -Werror -Wno-unused-parameter
 
 CFLAGS := -g -std=c99 -D_BSD_SOURCE -D_POSIX_C_SOURCE=200112L \
 	-I$(CURDIR)/include/ -I$(CURDIR)/src $(WARNFLAGS) $(CFLAGS) -Wno-error

@@ -7,7 +7,7 @@
  * return value    : #bytes filled in buf   (excluding \0)
  * sets *buflen to : #bytes encoded from data
  */
-int base32_encode(char *buf, size_t *buflen, const void *data, size_t size);
+int base32_encode(uint8_t *buf, size_t *buflen, const void *data, size_t size);
 
 /*
  * Fills *buf with max. buflen bytes, decoded from slen chars in *str.

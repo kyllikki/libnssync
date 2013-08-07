@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "base32.h"
 
@@ -32,7 +33,7 @@ static int reverse_init = 0;
 
 
 inline static void
-base32_reverse_init()
+base32_reverse_init(void)
 {
 	int i;
 	unsigned char c;
@@ -64,11 +65,11 @@ b32_8to5(int in)
 
 /* exported interface documented in base32.h */
 int 
-base32_encode(char *buf, size_t *buflen, const void *data, size_t size)
+base32_encode(uint8_t *buf, size_t *buflen, const void *data, size_t size)
 {
 	unsigned char *udata = (unsigned char *) data;
-	int iout = 0;	/* to-be-filled output char */
-	int iin = 0;	/* one more than last input byte that can be
+	size_t iout = 0;	/* to-be-filled output char */
+	size_t iin = 0;	/* one more than last input byte that can be
 			   successfully decoded */
 
 	/* Note: Don't bother to optimize manually. GCC optimizes
@@ -150,8 +151,8 @@ int
 base32_decode(void *buf, size_t buflen, const char *str, size_t slen)
 {
 	unsigned char *ubuf = (unsigned char *) buf;
-	int iout = 0;	/* to-be-filled output byte */
-	int iin = 0;	/* next input char to use in decoding */
+	size_t iout = 0;	/* to-be-filled output byte */
+	size_t iin = 0;	/* next input char to use in decoding */
 
 	base32_reverse_init ();
 

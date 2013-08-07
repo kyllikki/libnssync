@@ -65,7 +65,7 @@ nssync_crypto_synckey_encode(const uint8_t *key, char **key_out)
 	int keyidx = 0;
 	int idx;
 
-	base32_encode(key32, &buflen, key, SYNCKEY_LENGTH);
+	base32_encode((uint8_t*)key32, &buflen, key, SYNCKEY_LENGTH);
 
 	genkey = malloc(ENCODED_SYNCKEY_LENGTH + 1); /* allow for zero pad */
 	if (genkey == NULL) {

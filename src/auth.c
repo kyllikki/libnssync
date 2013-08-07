@@ -58,7 +58,7 @@ static char *strduptolower(const char *s) {
  * https://hg.mozilla.org/mozilla-central/file/2cfff9240e9a/services/sync/modules/identity.js#l422
  *
  */
-char *moz_sync_username_from_accountname(const char *accountname)
+static char *moz_sync_username_from_accountname(const char *accountname)
 {
 	char *username;
 	SHA_CTX context;
@@ -75,7 +75,7 @@ char *moz_sync_username_from_accountname(const char *accountname)
 
 	username = calloc(1, bufflen);
 	if (username != NULL) {
-		base32_encode(username, &bufflen, digest, sizeof(digest));
+		base32_encode((uint8_t*)username, &bufflen, digest, sizeof(digest));
 	}
 
 	return username;

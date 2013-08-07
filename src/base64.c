@@ -13,7 +13,7 @@ static uint8_t encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
                                 'w', 'x', 'y', 'z', '0', '1', '2', '3',
                                 '4', '5', '6', '7', '8', '9', '+', '/'};
-static int mod_table[] = {0, 2, 1};
+static unsigned int mod_table[] = {0, 2, 1};
 
 
 uint8_t *base64_encode(const unsigned char *data,
@@ -21,8 +21,8 @@ uint8_t *base64_encode(const unsigned char *data,
                     size_t *output_length) 
 {
 	uint8_t *encoded_data;
-	int i;
-	int j;
+	size_t i;
+	size_t j;
 
 	*output_length = 4 * ((input_length + 2) / 3);
 
@@ -59,8 +59,8 @@ uint8_t *base64_decode(const uint8_t *data,
 {
 	static bool decode_initialised = false;
 	uint8_t *decoded_data;
-	int i;
-	int j;
+	size_t i;
+	size_t j;
 
 	if (!decode_initialised) {
 		for (i = 0; i < 64; i++) {

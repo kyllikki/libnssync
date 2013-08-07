@@ -24,7 +24,7 @@ uint8_t *hex16_decode(const uint8_t *data,
 {
 	uint8_t *decoded;
 	size_t decoded_length;
-	int dloop;
+	size_t dloop;
 
 	decoded_length = input_length / 2; /* 4 bits per input byte */
 	decoded = malloc(decoded_length);
