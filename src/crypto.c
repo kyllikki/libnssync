@@ -8,7 +8,7 @@
 #include <openssl/hmac.h>
 #include <openssl/aes.h>
 
-#include "nssync.h"
+#include <nssync/nssync.h>
 
 #include "crypto.h"
 #include "base32.h"

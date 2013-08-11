@@ -4,7 +4,9 @@ USERNAME=vince@kyllikki.org
 #PASSWORD=insecure
 PASSWORD=$1
 
-USERID=$(./sha1base32 ${USERNAME})
+TOOL_PRFX=../build-Linux-Linux-release-lib-static/test_
+
+USERID=$(${TOOL_PRFX}sha1base32 ${USERNAME})
 
 STORAGE_SERVER=$(curl -s "https://auth.services.mozilla.com/user/1.0/${USERID}/node/weave")
 

@@ -8,7 +8,8 @@
 #include <openssl/hmac.h>
 #include <openssl/aes.h>
 
-#include "nssync.h"
+#include <nssync/nssync.h>
+
 #include "crypto.h"
 
 static void dskey(const uint8_t *s)

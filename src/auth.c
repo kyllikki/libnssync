@@ -7,10 +7,11 @@
 
 #include <openssl/sha.h>
 
+#include <nssync/error.h>
+
 #include "base32.h"
 #include "request.h"
 
-#include "nssync_error.h"
 #include "auth.h"
 
 struct nssync_auth {

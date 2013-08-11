@@ -1,3 +1,10 @@
+/*
+ * This file is part of libnssync
+ *
+ * Copyright 20013 Vincent Sanders <vince@netsurf-browser.org>
+ *
+ * Released under MIT licence (see COPYING file)
+ */
 
 #ifndef NSSYNC_ERROR_H
 #define NSSYNC_ERROR_H

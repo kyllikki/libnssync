@@ -5,13 +5,12 @@
 
 #include <jansson.h>
 
-#include "nssync.h"
+#include <nssync/nssync.h>
 
 #include "crypto.h"
 #include "request.h"
 #include "auth.h"
 #include "storage.h"
-#include "sync.h"
 
 /* supported storage version */
 #define STORAGE_VERSION 5

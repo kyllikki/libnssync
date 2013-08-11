@@ -7,7 +7,7 @@
 
 #include <jansson.h>
 
-#include "nssync.h"
+#include <nssync/nssync.h>
 
 #include "crypto.h"
 #include "request.h"

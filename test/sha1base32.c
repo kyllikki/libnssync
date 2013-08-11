@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <openssl/sha.h>
+
 /* #include "sha1.h"*/
 #include "base32.h"
 
@@ -23,7 +24,7 @@ int main(int argc, char **argv)
 	SHA1_Update(&context, argv[1], strlen(argv[1]));
 	SHA1_Final(digest, &context);
 
-	base32_encode(output, &bufflen, digest, sizeof(digest));
+	base32_encode((uint8_t *)output, &bufflen, digest, sizeof(digest));
 
 	printf("%s\n", output);
 

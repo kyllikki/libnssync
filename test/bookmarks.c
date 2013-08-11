@@ -5,6 +5,7 @@
 int main(int argc, char *argv[])
 {
 	struct nssync_sync *sync;
+	struct nssync_sync_bookmarks *sync_bookmarks;
 	enum nssync_error ret;
 	struct nssync_provider provider = {
 		.type = NSSYNC_SERVICE_MOZILLA,
@@ -28,6 +29,16 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "error (%d) creating sync\n", ret);
 		return 1;
 	}
+
+
+	ret = nssync_bookmarks_new(sync, &sync_bookmarks);
+	if (ret != NSSYNC_ERROR_OK) {
+		fprintf(stderr, "error (%d) creating bookmarks\n", ret);
+		nssync_sync_free(sync);
+		return 1;
+	}
+
+	nssync_bookmarks_free(sync_bookmarks);
 
 	nssync_sync_free(sync);
 
