@@ -8,92 +8,81 @@
 
 #define BUFFER_SIZE  (256 * 1024)  /* 256 KB */
 
-struct write_result
-{
-	char *data;
-	int pos;
-};
 
 static size_t write_response(void *ptr, size_t size, size_t nmemb, void *stream)
 {
-	struct write_result *result = (struct write_result *)stream;
+	struct nssync_fetcher_param *fetch = stream;
 
-	if(result->pos + size * nmemb >= BUFFER_SIZE - 1)
-	{
+	if ((fetch->data_used + size * nmemb) >= (fetch->data_size - 1)) {
 		fprintf(stderr, "error: too small buffer\n");
 		return 0;
 	}
 
-	memcpy(result->data + result->pos, ptr, size * nmemb);
-	result->pos += size * nmemb;
+	memcpy(((uint8_t *)fetch->data) + fetch->data_used, ptr, size * nmemb);
+	fetch->data_used += size * nmemb;
 
 	return size * nmemb;
 }
 
 
-static char *
-nssync__request(const char *url, const char *username, const char *password)
+enum nssync_error
+nssync_fetcher_curl(struct nssync_fetcher_param *fetch,
+		    nssync_fetcher_cb *cb,
+		    void *cb_ctx)
 {
 	CURL *curl;
 	CURLcode status;
-	char *data;
 	long code;
 
+	if (fetch->data == NULL) {
+		fetch->data_size = BUFFER_SIZE;
+		fetch->data = malloc(fetch->data_size);
+	}
+
+	if (fetch->data == NULL) {
+		return NSSYNC_ERROR_NOMEM;
+	}
+
 	curl = curl_easy_init();
-	data = malloc(BUFFER_SIZE);
-	if(!curl || !data)
-		return NULL;
 
-	struct write_result write_result = {
-		.data = data,
-		.pos = 0
-	};
+	if (!curl) {
+		return NSSYNC_ERROR_FETCH;
+	}
 
-	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_URL, fetch->url);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_response);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_result);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, fetch);
 
-	if (username != NULL) {
-		curl_easy_setopt(curl, CURLOPT_USERNAME, username);
-		curl_easy_setopt(curl, CURLOPT_PASSWORD, password);
+	if (fetch->username != NULL) {
+		curl_easy_setopt(curl, CURLOPT_USERNAME, fetch->username);
+		curl_easy_setopt(curl, CURLOPT_PASSWORD, fetch->password);
 	}
 
 	status = curl_easy_perform(curl);
-	if(status != 0)
-	{
-		fprintf(stderr, "error: unable to request data from %s:\n", url);
+	if (status != 0) {
+		fprintf(stderr, "error: unable to request data from %s:\n", fetch->url);
 		fprintf(stderr, "%s\n", curl_easy_strerror(status));
-		return NULL;
+		curl_easy_cleanup(curl);
+		return NSSYNC_ERROR_FETCH;
 	}
 
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
 	if (code != 200) {
 		fprintf(stderr, "error: server responded with code %ld\n", code);
-		return NULL;
+		curl_easy_cleanup(curl);
+		return NSSYNC_ERROR_FETCH;
 	}
 
 	curl_easy_cleanup(curl);
 	curl_global_cleanup();
 
 	/* zero-terminate the result */
-	data[write_result.pos] = '\0';
+	((uint8_t *)fetch->data)[fetch->data_used] = '\0';
 
-	return data;
-}
-
-enum nssync_error 
-nssync_fetcher_curl(struct nssync_fetcher_param *param, 
-		    nssync_fetcher_cb *cb, 
-		    void *cb_ctx )
-{
-
-	param->data = nssync__request(param->url, 
-				      param->username, 
-				      param->password);
-
-	if (param->data == NULL) {
-		return NSSYNC_ERROR_FETCH;
+	/* call the callback */
+	if (cb != NULL) {
+		cb(fetch, cb_ctx);
 	}
-		
+
 	return NSSYNC_ERROR_OK;
 }
