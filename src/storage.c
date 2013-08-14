@@ -1,3 +1,12 @@
+/*
+ * Copyright 2013 Vincent Sanders <vince@netsurf-browser.org>
+ *
+ * This file is part of libnssync, http://www.netsurf-browser.org/
+ *
+ * Released under the Expat MIT License (see COPYING),
+ *
+ */
+
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -9,9 +18,10 @@
 
 #include <nssync/nssync.h>
 
+#include "util.h"
 #include "crypto.h"
 #include "request.h"
-#include "auth.h"
+#include "registration.h"
 #include "storage.h"
 
 struct nssync_storage_collection {
@@ -37,34 +47,6 @@ struct nssync_storage_obj {
 	int ttl;
 };
 
-static int saprintf(char **str_out, const char *format, ...)
-{
-	va_list ap;
-	int slen = 0;
-	char *str = NULL;
-
-	va_start(ap, format);
-	slen = vsnprintf(str, slen, format, ap);
-	va_end(ap);
-
-	str = malloc(slen + 1);
-	if (str == NULL) {
-		return -1;
-	}
-
-	va_start(ap, format);
-	slen = vsnprintf(str, slen + 1, format, ap);
-	va_end(ap);
-
-	if (slen < 0) {
-		free(str);
-	} else {
-		*str_out = str;
-	}
-
-	return slen;
-}
-
 static int fetch_collections(struct nssync_storage *store)
 {
 	char *url;
@@ -75,7 +57,7 @@ static int fetch_collections(struct nssync_storage *store)
 	json_t *value;
 	int colidx; /* collection index */
 
-	if (saprintf(&url, "%s/info/collections", store->base) < 0) {
+	if (nssync__saprintf(&url, "%s/info/collections", store->base) < 0) {
 		return -1;
 	}
 
@@ -116,7 +98,7 @@ static int fetch_collections(struct nssync_storage *store)
 
 
 int
-nssync_storage_new(struct nssync_auth *auth,
+nssync_storage_new(struct nssync_registration *reg,
 		   const char *pathname,
 		   struct nssync_storage **store_out)
 {
@@ -125,7 +107,7 @@ nssync_storage_new(struct nssync_auth *auth,
 	const char *fmt;
 	int ret;
 
-	server = nssync_auth_get_storage_server(auth);
+	server = nssync_registration_get_storage_server(reg);
 	if (server == NULL) {
 		return -1;
 	}
@@ -135,8 +117,8 @@ nssync_storage_new(struct nssync_auth *auth,
 		return -1;
 	}
 
-	newstore->username = strdup(nssync_auth_get_username(auth));
-	newstore->password = strdup(nssync_auth_get_password(auth));
+	newstore->username = strdup(nssync_registration_get_username(reg));
+	newstore->password = strdup(nssync_registration_get_password(reg));
 
 	/* alter the format specifier depending on separator requirements */
 	if (server[strlen(server) - 1] ==  '/') {
@@ -155,7 +137,7 @@ nssync_storage_new(struct nssync_auth *auth,
 		}
 	}
 
-	if (saprintf(&newstore->base, fmt, server, pathname,
+	if (nssync__saprintf(&newstore->base, fmt, server, pathname,
 		     newstore->username) < 0) {
 		nssync_storage_free(newstore);
 		return -1;
@@ -201,7 +183,8 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 	json_error_t error;
 	json_t *payload;
 
-	if (saprintf(&url, "%s/storage/%s/%s", store->base, collection, object) < 0) {
+	if (nssync__saprintf(&url, "%s/storage/%s/%s", store->base,
+			    collection, object) < 0) {
 		return NSSYNC_ERROR_NOMEM;
 	}
 

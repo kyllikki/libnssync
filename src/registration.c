@@ -1,3 +1,12 @@
+/*
+ * Copyright 2013 Vincent Sanders <vince@netsurf-browser.org>
+ *
+ * This file is part of libnssync, http://www.netsurf-browser.org/
+ *
+ * Released under the Expat MIT License (see COPYING),
+ *
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -9,13 +18,15 @@
 
 #include <nssync/error.h>
 
+#include "util.h"
 #include "base32.h"
 #include "request.h"
+#include "registration.h"
 
-#include "auth.h"
+#define WEAVE_PATH "%suser/1.0/%s/node/weave"
 
-struct nssync_auth {
-	char *server; /* auth server */
+struct nssync_registration {
+	char *server; /* registration server */
 	char *account; /* users account name */
 	char *password; /* users account password */
 
@@ -82,73 +93,76 @@ static char *moz_sync_username_from_accountname(const char *accountname)
 	return username;
 }
 
-/* exported interface documented in auth.h */
+/* exported interface documented in registration.h */
 enum nssync_error
-nssync_auth_new(const char *server,
-		const char *account,
-		const char *password,
-		struct nssync_auth **auth_out)
+nssync_registration_new(const char *server,
+			const char *account,
+			const char *password,
+			struct nssync_registration **reg_out)
 {
-	struct nssync_auth *newauth;
+	struct nssync_registration *newreg;
 
-	newauth = calloc(1, sizeof(*newauth));
-	if (newauth == NULL) {
+	newreg = calloc(1, sizeof(*newreg));
+	if (newreg == NULL) {
 		return NSSYNC_ERROR_NOMEM;
 	}
 
-	newauth->server = strdup(server);
-	newauth->account = strdup(account);
-	newauth->password = strdup(password);
+	newreg->server = strdup(server);
+	newreg->account = strdup(account);
+	newreg->password = strdup(password);
 
-	newauth->username = moz_sync_username_from_accountname(account);
-	if (newauth->username == NULL) {
-		nssync_auth_free(newauth);
+	newreg->username = moz_sync_username_from_accountname(account);
+	if (newreg->username == NULL) {
+		nssync_registration_free(newreg);
 		return NSSYNC_ERROR_NOMEM;
 	}
 
-	*auth_out = newauth;
+	*reg_out = newreg;
 	return NSSYNC_ERROR_OK;
 }
 
-/* exported interface documented in auth.h */
+/* exported interface documented in registration.h */
 enum nssync_error
-nssync_auth_free(struct nssync_auth *auth)
+nssync_registration_free(struct nssync_registration *reg)
 {
-	free(auth->username);
-	free(auth->server);
-	free(auth->account);
-	free(auth->password);
+	free(reg->username);
+	free(reg->server);
+	free(reg->account);
+	free(reg->password);
 
-	free(auth);
+	free(reg);
 
 	return NSSYNC_ERROR_OK;
 }
 
-#define URL_SIZE 256
-#define AUTH_PATH "%suser/1.0/%s/node/weave"
 
-/* exported interface documented in auth.h */
+/* exported interface documented in registration.h */
 char *
-nssync_auth_get_storage_server(struct nssync_auth *auth)
+nssync_registration_get_storage_server(struct nssync_registration *reg)
 {
-	char url[URL_SIZE];
+	char *url;
 
-	if (auth->storage_server == NULL) {
-		snprintf(url, URL_SIZE, AUTH_PATH, auth->server, auth->username);
-		auth->storage_server = nssync__request(url, NULL, NULL);
+	if (reg->storage_server == NULL) {
+		if (nssync__saprintf(&url,
+				      WEAVE_PATH,
+				      reg->server,
+				      reg->username) >= 0) {
+			reg->storage_server = nssync__request(url, NULL, NULL);
+			free(url);
+		}
 	}
 
-	return auth->storage_server;
+	return reg->storage_server;
 }
 
 char *
-nssync_auth_get_username(struct nssync_auth *auth)
+nssync_registration_get_username(struct nssync_registration *reg)
 {
-	return auth->username;
+	return reg->username;
 }
 
 char *
-nssync_auth_get_password(struct nssync_auth *auth)
+nssync_registration_get_password(struct nssync_registration *reg)
 {
-	return auth->password;
+	return reg->password;
 }

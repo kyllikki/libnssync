@@ -2,7 +2,7 @@ struct nssync_storage;
 struct nssync_storage_obj;
 
 /** create a new storage state for retriving objects */
-int nssync_storage_new(struct nssync_auth *auth, const char *pathname, struct nssync_storage **store_out);
+int nssync_storage_new(struct nssync_registration *registration, const char *pathname, struct nssync_storage **store_out);
 int nssync_storage_free(struct nssync_storage *store);
 
 /** fetch storage object from storage server */

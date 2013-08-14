@@ -1,3 +1,12 @@
+/*
+ * Copyright 2013 Vincent Sanders <vince@netsurf-browser.org>
+ *
+ * This file is part of libnssync, http://www.netsurf-browser.org/
+ *
+ * Released under the Expat MIT License (see COPYING),
+ *
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -9,7 +18,7 @@
 
 #include "crypto.h"
 #include "request.h"
-#include "auth.h"
+#include "registration.h"
 #include "storage.h"
 
 /* supported storage version */
@@ -22,7 +31,7 @@ struct nssync_sync_engine {
 };
 
 struct nssync_sync {
-	struct nssync_auth *auth;
+	struct nssync_registration *reg;
 	struct nssync_storage *store;
 	struct nssync_crypto_keybundle *sync_keybundle;
 
@@ -219,29 +228,29 @@ nssync_sync_new(const struct nssync_provider *provider,
 		return NSSYNC_ERROR_NOMEM;
 	}
 
-	/* create auth info from parameters */
-	ret = nssync_auth_new(provider->params.mozilla.server,
+	/* create registration from parameters */
+	ret = nssync_registration_new(provider->params.mozilla.server,
 			      provider->params.mozilla.account,
 			      provider->params.mozilla.password,
-			      &newsync->auth);
+			      &newsync->reg);
 	if (ret != NSSYNC_ERROR_OK) {
-		return NSSYNC_ERROR_AUTH;
+		return NSSYNC_ERROR_REGISTRATION;
 	}
 
 	/* create sync key bundle */
-	ret = nssync_crypto_keybundle_new_user_synckey(provider->params.mozilla.key, nssync_auth_get_username(newsync->auth), &newsync->sync_keybundle);
+	ret = nssync_crypto_keybundle_new_user_synckey(provider->params.mozilla.key, nssync_registration_get_username(newsync->reg), &newsync->sync_keybundle);
 	if (ret != NSSYNC_ERROR_OK) {
 		debugf("unable to create sync key: %d\n", ret);
-		nssync_auth_free(newsync->auth);
+		nssync_registration_free(newsync->reg);
 		free(newsync);
 		return ret;
 	}
 
-	/* create data store connection using auth data */
-	ret = nssync_storage_new(newsync->auth, "", &newsync->store);
+	/* create data store connection using reg data */
+	ret = nssync_storage_new(newsync->reg, "", &newsync->store);
 	if (ret != NSSYNC_ERROR_OK) {
 		debugf("unable to create store: %d\n", ret);
-		nssync_auth_free(newsync->auth);
+		nssync_registration_free(newsync->reg);
 		free(newsync->sync_keybundle);
 		free(newsync);
 		return ret;
@@ -271,7 +280,9 @@ nssync_sync_free(struct nssync_sync *sync)
 {
 	nssync_storage_obj_free(sync->metaglobal_obj);
 	nssync_storage_free(sync->store);
-	nssync_auth_free(sync->auth);
+	nssync_registration_free(sync->reg);
+
 	free(sync);
+
 	return  NSSYNC_ERROR_OK;
 }
