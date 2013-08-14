@@ -20,16 +20,27 @@ struct nssync_sync_bookmarks {
 	struct nssync_sync *sync;
 
 	/* bookmarks collection object */
-	struct nssync_storage_obj *bookmarks_collection;
-
-
+	struct nssync_storage_obj **bookmarksv;
+	int bookmarksc;
 };
 
 enum nssync_error
 nssync_bookmarks_new(struct nssync_sync *sync,
 		     struct nssync_sync_bookmarks **sync_bookmarks)
 {
-	return NSSYNC_ERROR_NOMEM;
+	struct nssync_sync_bookmarks *newmarks;
+	struct nssync_fetcher_param *fetch;
+
+	newmarks = calloc(1, sizeof(*newmarks));
+	if (newmarks == NULL) {
+		return NSSYNC_ERROR_NOMEM;
+	}
+
+	newmarks->sync = sync;
+
+
+
+	return NSSYNC_ERROR_OK;
 }
 
 enum nssync_error

@@ -122,7 +122,7 @@ nssync_storage_new(struct nssync_registration *reg,
 
 	newstore = calloc(1, sizeof(*newstore));
 	if (newstore == NULL) {
-		return -1;
+		return NSSYNC_ERROR_NOMEM;
 	}
 
 	newstore->fetcher = fetcher;
