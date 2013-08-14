@@ -20,4 +20,6 @@ enum nssync_error {
 	NSSYNC_ERROR_FETCH, /* https fetch error */
 };
 
+typedef enum nssync_error nssync_error;
+
 #endif

@@ -6,13 +6,9 @@
  * Released under MIT licence (see COPYING file)
  */
 
-#ifndef NSSYNC_H
-#define NSSYNC_H
+#ifndef NSSYNC_DEBUG_H
+#define NSSYNC_DEBUG_H
 
-#include "error.h"
-#include "debug.h"
-#include "sync.h"
-#include "bookmarks.h"
-#include "fetcher.h"
+#define debugf(format, ...) fprintf (stderr, format, ## __VA_ARGS__)
 
 #endif

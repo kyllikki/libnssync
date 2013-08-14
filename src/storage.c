@@ -16,11 +16,12 @@
 
 #include <jansson.h>
 
-#include <nssync/nssync.h>
+#include <nssync/error.h>
+#include <nssync/fetcher.h>
+#include <nssync/debug.h>
 
 #include "util.h"
 #include "crypto.h"
-#include "request.h"
 #include "registration.h"
 #include "storage.h"
 
@@ -30,6 +31,8 @@ struct nssync_storage_collection {
 };
 
 struct nssync_storage {
+	nssync_fetcher *fetcher; /* fetcher to retrive data */
+
 	char *username;
 	char *password;
 
@@ -47,30 +50,34 @@ struct nssync_storage_obj {
 	int ttl;
 };
 
-static int fetch_collections(struct nssync_storage *store)
+static nssync_error fetch_collections(struct nssync_storage *store)
 {
+	enum nssync_error ret;
 	char *url;
-	char *reply;
 	json_t *root;
 	json_error_t error;
 	const char *key;
 	json_t *value;
 	int colidx; /* collection index */
+	struct nssync_fetcher_param fetch = {
+		.username = store->username,
+		.password = store->password,
+		.data = NULL,
+	};
 
 	if (nssync__saprintf(&url, "%s/info/collections", store->base) < 0) {
 		return -1;
 	}
 
-	reply = nssync__request(url, store->username, store->password);
+	fetch.url = url;
+	ret = store->fetcher(&fetch, NULL, NULL);
 	free(url);
-	if (reply == NULL) {
-		return -1;
+	if (ret != NSSYNC_ERROR_OK) {
+		return ret;
 	}
 
-
-	root = json_loads(reply, 0, &error);
-	free(reply);
-
+	root = json_loads(fetch.data, 0, &error);
+	free(fetch.data);
 	store->collectionc = json_object_size(root);
 	if (store->collectionc == 0) {
 		fprintf(stderr, "error: root is not an object\n");
@@ -97,9 +104,10 @@ static int fetch_collections(struct nssync_storage *store)
 }
 
 
-int
+nssync_error
 nssync_storage_new(struct nssync_registration *reg,
 		   const char *pathname,
+		   nssync_fetcher *fetcher,
 		   struct nssync_storage **store_out)
 {
 	char *server;
@@ -117,6 +125,7 @@ nssync_storage_new(struct nssync_registration *reg,
 		return -1;
 	}
 
+	newstore->fetcher = fetcher;
 	newstore->username = strdup(nssync_registration_get_username(reg));
 	newstore->password = strdup(nssync_registration_get_password(reg));
 
@@ -152,11 +161,11 @@ nssync_storage_new(struct nssync_registration *reg,
 
 	*store_out = newstore;
 
-	return 0;
+	return NSSYNC_ERROR_OK;
 }
 
 
-int
+nssync_error
 nssync_storage_free(struct nssync_storage *store)
 {
 	free(store->base);
@@ -164,11 +173,11 @@ nssync_storage_free(struct nssync_storage *store)
 	free(store->password);
 	free(store);
 
-	return 0;
+	return NSSYNC_ERROR_OK;
 }
 
 
-enum nssync_error
+nssync_error
 nssync_storage_obj_fetch(struct nssync_storage *store,
 			 struct nssync_crypto_keybundle *keybundle,
 			 const char *collection,
@@ -177,11 +186,15 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 {
 	enum nssync_error ret;
 	struct nssync_storage_obj *obj;
-	char *reply;
 	char *url;
 	json_t *root;
 	json_error_t error;
 	json_t *payload;
+	struct nssync_fetcher_param fetch = {
+		.username = store->username,
+		.password = store->password,
+		.data = NULL,
+	};
 
 	if (nssync__saprintf(&url, "%s/storage/%s/%s", store->base,
 			    collection, object) < 0) {
@@ -190,22 +203,21 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 
 	debugf("requesting:%s\n", url);
 
-	reply = nssync__request(url, store->username, store->password);
+	fetch.url = url;
+	ret = store->fetcher(&fetch, NULL, NULL);
 	free(url);
-	if (reply == NULL) {
-		return NSSYNC_ERROR_FETCH;
+	if (ret != NSSYNC_ERROR_OK) {
+		return ret;
 	}
-	//debugf("%s\n\n", reply);
 
 	obj = calloc(1, sizeof(*obj));
 	if (obj == NULL) {
-		free(reply);
+		free(fetch.data);
 		return NSSYNC_ERROR_NOMEM;
 	}
 
-	root = json_loads(reply, 0, &error);
-	free(reply);
-
+	root = json_loads(fetch.data, 0, &error);
+	free(fetch.data);
 	if (!root) {
 		debugf("error: on line %d of reply: %s\n",
 			error.line, error.text);

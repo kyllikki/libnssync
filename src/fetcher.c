@@ -4,7 +4,7 @@
 
 #include <curl/curl.h>
 
-#include "request.h"
+#include <nssync/fetcher.h>
 
 #define BUFFER_SIZE  (256 * 1024)  /* 256 KB */
 
@@ -30,7 +30,8 @@ static size_t write_response(void *ptr, size_t size, size_t nmemb, void *stream)
 	return size * nmemb;
 }
 
-char *
+
+static char *
 nssync__request(const char *url, const char *username, const char *password)
 {
 	CURL *curl;
@@ -78,4 +79,21 @@ nssync__request(const char *url, const char *username, const char *password)
 	data[write_result.pos] = '\0';
 
 	return data;
+}
+
+enum nssync_error 
+nssync_fetcher_curl(struct nssync_fetcher_param *param, 
+		    nssync_fetcher_cb *cb, 
+		    void *cb_ctx )
+{
+
+	param->data = nssync__request(param->url, 
+				      param->username, 
+				      param->password);
+
+	if (param->data == NULL) {
+		return NSSYNC_ERROR_FETCH;
+	}
+		
+	return NSSYNC_ERROR_OK;
 }

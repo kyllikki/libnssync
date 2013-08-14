@@ -5,6 +5,7 @@
  *
  * Released under the Expat MIT License (see COPYING),
  *
+ * This implements access to the mozilla registration service
  */
 
 #include <stdlib.h>
@@ -17,15 +18,17 @@
 #include <openssl/sha.h>
 
 #include <nssync/error.h>
+#include <nssync/fetcher.h>
 
 #include "util.h"
 #include "base32.h"
-#include "request.h"
 #include "registration.h"
 
 #define WEAVE_PATH "%suser/1.0/%s/node/weave"
 
 struct nssync_registration {
+	nssync_fetcher *fetcher;
+
 	char *server; /* registration server */
 	char *account; /* users account name */
 	char *password; /* users account password */
@@ -98,6 +101,7 @@ enum nssync_error
 nssync_registration_new(const char *server,
 			const char *account,
 			const char *password,
+			nssync_fetcher *fetcher,
 			struct nssync_registration **reg_out)
 {
 	struct nssync_registration *newreg;
@@ -107,6 +111,7 @@ nssync_registration_new(const char *server,
 		return NSSYNC_ERROR_NOMEM;
 	}
 
+	newreg->fetcher = fetcher;
 	newreg->server = strdup(server);
 	newreg->account = strdup(account);
 	newreg->password = strdup(password);
@@ -143,11 +148,16 @@ nssync_registration_get_storage_server(struct nssync_registration *reg)
 	char *url;
 
 	if (reg->storage_server == NULL) {
-		if (nssync__saprintf(&url,
-				      WEAVE_PATH,
-				      reg->server,
-				      reg->username) >= 0) {
-			reg->storage_server = nssync__request(url, NULL, NULL);
+		if (nssync__saprintf(&url, WEAVE_PATH, reg->server, reg->username) >= 0) {
+			struct nssync_fetcher_param param = {
+				.url = url,
+				.username = reg->username,
+				.password = reg->password,
+				.data = NULL,				
+			};
+			if (reg->fetcher(&param, NULL, NULL) == NSSYNC_ERROR_OK) {
+				reg->storage_server = param.data;
+			}
 			free(url);
 		}
 	}

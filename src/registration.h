@@ -9,7 +9,7 @@
 
 struct nssync_registration;
 
-enum nssync_error nssync_registration_new(const char *server, const char *account, const char *password, struct nssync_registration **registration_out);
+enum nssync_error nssync_registration_new(const char *server, const char *account, const char *password, nssync_fetcher *fetcher, struct nssync_registration **registration_out);
 
 enum nssync_error nssync_registration_free(struct nssync_registration *registration);
 

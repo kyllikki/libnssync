@@ -17,7 +17,6 @@
 #include <nssync/nssync.h>
 
 #include "crypto.h"
-#include "request.h"
 #include "registration.h"
 #include "storage.h"
 
@@ -218,6 +217,7 @@ nssync_sync_new(const struct nssync_provider *provider,
 {
 	enum nssync_error ret;
 	struct nssync_sync *newsync;
+	nssync_fetcher *fetcher; /* fetcher to retrive data */
 
 	if (provider->type != NSSYNC_SERVICE_MOZILLA) {
 		return NSSYNC_ERROR_INVAL;
@@ -228,17 +228,27 @@ nssync_sync_new(const struct nssync_provider *provider,
 		return NSSYNC_ERROR_NOMEM;
 	}
 
+	/* setup the fetcher to call */
+	if (provider->fetcher == NULL) {
+		fetcher = nssync_fetcher_curl;
+	} else {
+		fetcher = provider->fetcher;
+	}
+
 	/* create registration from parameters */
 	ret = nssync_registration_new(provider->params.mozilla.server,
-			      provider->params.mozilla.account,
-			      provider->params.mozilla.password,
-			      &newsync->reg);
+				      provider->params.mozilla.account,
+				      provider->params.mozilla.password,
+				      fetcher,
+				      &newsync->reg);
 	if (ret != NSSYNC_ERROR_OK) {
 		return NSSYNC_ERROR_REGISTRATION;
 	}
 
 	/* create sync key bundle */
-	ret = nssync_crypto_keybundle_new_user_synckey(provider->params.mozilla.key, nssync_registration_get_username(newsync->reg), &newsync->sync_keybundle);
+	ret = nssync_crypto_keybundle_new_user_synckey(provider->params.mozilla.key,
+				nssync_registration_get_username(newsync->reg),
+				&newsync->sync_keybundle);
 	if (ret != NSSYNC_ERROR_OK) {
 		debugf("unable to create sync key: %d\n", ret);
 		nssync_registration_free(newsync->reg);
@@ -247,7 +257,7 @@ nssync_sync_new(const struct nssync_provider *provider,
 	}
 
 	/* create data store connection using reg data */
-	ret = nssync_storage_new(newsync->reg, "", &newsync->store);
+	ret = nssync_storage_new(newsync->reg, "", fetcher, &newsync->store);
 	if (ret != NSSYNC_ERROR_OK) {
 		debugf("unable to create store: %d\n", ret);
 		nssync_registration_free(newsync->reg);

@@ -10,6 +10,7 @@
 #define NSSYNC_SYNC_H
 
 #include <nssync/error.h>
+#include <nssync/fetcher.h>
 
 struct nssync_sync;
 
@@ -21,6 +22,7 @@ enum nssync_provider_type {
 /* service parameters */
 struct nssync_provider {
 	enum nssync_provider_type type;
+	nssync_fetcher *fetcher;
 	union {
 		struct {
 			const char *server;
