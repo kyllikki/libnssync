@@ -5,6 +5,7 @@
 #include <curl/curl.h>
 
 #include <nssync/fetcher.h>
+#include <nssync/debug.h>
 
 #define BUFFER_SIZE  (256 * 1024)  /* 256 KB */
 
@@ -26,13 +27,13 @@ static size_t write_response(void *ptr, size_t size, size_t nmemb, void *stream)
 
 
 enum nssync_error
-nssync_fetcher_curl(struct nssync_fetcher_param *fetch,
-		    nssync_fetcher_cb *cb,
-		    void *cb_ctx)
+nssync_fetcher_curl(struct nssync_fetcher_param *fetch)
 {
 	CURL *curl;
 	CURLcode status;
 	long code;
+
+	debugf("fetching:%s\n", fetch->url);
 
 	if (fetch->data == NULL) {
 		fetch->data_size = BUFFER_SIZE;
@@ -80,8 +81,8 @@ nssync_fetcher_curl(struct nssync_fetcher_param *fetch,
 	((uint8_t *)fetch->data)[fetch->data_used] = '\0';
 
 	/* call the callback */
-	if (cb != NULL) {
-		cb(fetch, cb_ctx);
+	if (fetch->completion != NULL) {
+		return fetch->completion(fetch);
 	}
 
 	return NSSYNC_ERROR_OK;

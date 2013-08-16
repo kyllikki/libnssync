@@ -103,7 +103,7 @@ static nssync_error fetch_collections(struct nssync_storage *store)
 	return 0;
 }
 
-
+/* exported interface documented in storage.h */
 nssync_error
 nssync_storage_new(struct nssync_registration *reg,
 		   const char *pathname,
@@ -164,7 +164,7 @@ nssync_storage_new(struct nssync_registration *reg,
 	return NSSYNC_ERROR_OK;
 }
 
-
+/* exported interface documented in storage.h */
 nssync_error
 nssync_storage_free(struct nssync_storage *store)
 {
@@ -177,6 +177,7 @@ nssync_storage_free(struct nssync_storage *store)
 }
 
 
+/* exported interface documented in storage.h */
 nssync_error
 nssync_storage_obj_fetch(struct nssync_storage *store,
 			 struct nssync_crypto_keybundle *keybundle,
@@ -260,6 +261,113 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 	*obj_out = obj;
 
 	return NSSYNC_ERROR_OK;
+}
+
+struct collection_fetch {
+	struct nssync_fetcher_fetch fetch;
+	struct nssync_storage_obj ***objv_out;
+	int *objc_out;
+};
+
+static nssync_error
+nssync_storage_collection_fetch_complete(struct nssync_fetcher_fetch *fetch)
+{
+	struct collection_fetch *cfetch = (struct collection_fetch *)fetch;
+
+	free(url);
+	if (ret != NSSYNC_ERROR_OK) {
+		return ret;
+	}
+
+	obj = calloc(1, sizeof(*obj));
+	if (obj == NULL) {
+		free(fetch.data);
+		return NSSYNC_ERROR_NOMEM;
+	}
+
+	root = json_loads(fetch.data, 0, &error);
+	free(fetch.data);
+	if (!root) {
+		debugf("error: on line %d of reply: %s\n",
+			error.line, error.text);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	if (!json_is_object(root)) {
+		debugf("error: root is not an object\n");
+		json_decref(root);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	payload = json_object_get(root, "payload");
+	if (!json_is_string(payload)) {
+		fprintf(stderr, "error: payload is not a string\n");
+		json_decref(root);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	if (keybundle == NULL) {
+		/* no decryption */
+		obj->payload = (uint8_t*)strdup(json_string_value(payload));
+		if (obj->payload == NULL) {
+			json_decref(root);
+			return NSSYNC_ERROR_NOMEM;
+		}
+	} else {
+		ret = nssync_crypto_decrypt_record(json_string_value(payload),
+						   keybundle,
+						   &obj->payload,
+						   NULL);
+		if (ret != NSSYNC_ERROR_OK) {
+			json_decref(root);
+			return ret;
+		}
+	}
+
+	json_decref(root);
+
+	*obj_out = obj;
+
+	return NSSYNC_ERROR_OK;
+
+}
+
+/* exported interface documented in storage.h */
+nssync_error
+nssync_storage_collection_fetch_async(struct nssync_storage *store,
+				      struct nssync_crypto_keybundle *keybundle,
+				      const char *collection,
+				      struct nssync_storage_obj ***objv_out,
+				      int *objc_out)
+{
+	enum nssync_error ret;
+	struct nssync_storage_obj *obj;
+	json_t *root;
+	json_error_t error;
+	json_t *payload;
+	struct collection_cfetch *cfetch;
+
+	/* setup the fetch */
+	cfetch = calloc(1, sizeof(*cfetch));
+	if (cfetch == NULL) {
+		return NSSYNC_ERROR_NOMEM;
+	}
+
+	cfetch->objv = objv_out;
+	cfetch->objc = objc_out;
+
+	if (nssync__saprintf(&cfetch->fecth.url,
+			     "%s/storage/%s?full=1",
+			     store->base, collection) < 0) {
+		free(cfetch);
+		return NSSYNC_ERROR_NOMEM;
+	}
+
+	cfetch->fetch.username = store->username;
+	cfetch->fetch.password = store->password;
+	cfetch->fetch.completion = nssync_storage_collection_fetch_complete;
+
+	return store->fetcher(fetch);
 }
 
 int

@@ -17,7 +17,8 @@ enum nssync_error {
 	NSSYNC_ERROR_VERSION, /* unsupported protocol version */
 	NSSYNC_ERROR_PROTOCOL, /* protocol error (unexpected format etc.) */
 	NSSYNC_ERROR_HMAC, /* HMAC mismatch */
-	NSSYNC_ERROR_FETCH, /* https fetch error */
+	NSSYNC_ERROR_FETCH, /* fetcher failed (network, dns etc.) */
+	NSSYNC_ERROR_RETRY, /* async operation is in progress */
 };
 
 typedef enum nssync_error nssync_error;
