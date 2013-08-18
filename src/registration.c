@@ -145,20 +145,16 @@ nssync_registration_free(struct nssync_registration *reg)
 char *
 nssync_registration_get_storage_server(struct nssync_registration *reg)
 {
-	char *url;
+	struct nssync_fetcher_fetch fetch;
 
 	if (reg->storage_server == NULL) {
-		if (nssync__saprintf(&url, WEAVE_PATH, reg->server, reg->username) >= 0) {
-			struct nssync_fetcher_param param = {
-				.url = url,
-				.username = reg->username,
-				.password = reg->password,
-				.data = NULL,				
-			};
-			if (reg->fetcher(&param, NULL, NULL) == NSSYNC_ERROR_OK) {
-				reg->storage_server = param.data;
+		if (nssync__saprintf(&fetch.url, WEAVE_PATH, reg->server, reg->username) >= 0) {
+			fetch.username = reg->username;
+			fetch.password = reg->password;
+			if (reg->fetcher(&fetch) == NSSYNC_ERROR_OK) {
+				reg->storage_server = fetch.data;
 			}
-			free(url);
+			free(fetch.url);
 		}
 	}
 

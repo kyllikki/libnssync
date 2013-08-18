@@ -12,7 +12,7 @@
 
 static size_t write_response(void *ptr, size_t size, size_t nmemb, void *stream)
 {
-	struct nssync_fetcher_param *fetch = stream;
+	struct nssync_fetcher_fetch *fetch = stream;
 
 	if ((fetch->data_used + size * nmemb) >= (fetch->data_size - 1)) {
 		fprintf(stderr, "error: too small buffer\n");
@@ -27,7 +27,7 @@ static size_t write_response(void *ptr, size_t size, size_t nmemb, void *stream)
 
 
 enum nssync_error
-nssync_fetcher_curl(struct nssync_fetcher_param *fetch)
+nssync_fetcher_curl(struct nssync_fetcher_fetch *fetch)
 {
 	CURL *curl;
 	CURLcode status;
