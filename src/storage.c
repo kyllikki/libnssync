@@ -53,25 +53,22 @@ struct nssync_storage_obj {
 static nssync_error fetch_collections(struct nssync_storage *store)
 {
 	enum nssync_error ret;
-	char *url;
 	json_t *root;
 	json_error_t error;
 	const char *key;
 	json_t *value;
 	int colidx; /* collection index */
-	struct nssync_fetcher_param fetch = {
-		.username = store->username,
-		.password = store->password,
-		.data = NULL,
-	};
+	struct nssync_fetcher_fetch fetch = { };
 
-	if (nssync__saprintf(&url, "%s/info/collections", store->base) < 0) {
+	fetch.username = store->username;
+	fetch.password = store->password;
+
+	if (nssync__saprintf(&fetch.url, "%s/info/collections", store->base) < 0) {
 		return -1;
 	}
 
-	fetch.url = url;
-	ret = store->fetcher(&fetch, NULL, NULL);
-	free(url);
+	ret = store->fetcher(&fetch);
+	free(fetch.url);
 	if (ret != NSSYNC_ERROR_OK) {
 		return ret;
 	}
@@ -191,7 +188,7 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 	json_t *root;
 	json_error_t error;
 	json_t *payload;
-	struct nssync_fetcher_param fetch = {
+	struct nssync_fetcher_fetch fetch = {
 		.username = store->username,
 		.password = store->password,
 		.data = NULL,
@@ -205,7 +202,7 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 	debugf("requesting:%s\n", url);
 
 	fetch.url = url;
-	ret = store->fetcher(&fetch, NULL, NULL);
+	ret = store->fetcher(&fetch);
 	free(url);
 	if (ret != NSSYNC_ERROR_OK) {
 		return ret;
@@ -265,38 +262,48 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 
 struct collection_fetch {
 	struct nssync_fetcher_fetch fetch;
-	struct nssync_storage_obj ***objv_out;
-	int *objc_out;
+	struct nssync_storage_obj ***pobjv;
+	int *pobjc;
 };
 
 static nssync_error
 nssync_storage_collection_fetch_complete(struct nssync_fetcher_fetch *fetch)
 {
 	struct collection_fetch *cfetch = (struct collection_fetch *)fetch;
+	nssync_error ret;
+	json_t *root;
+	json_error_t error;
 
-	free(url);
+	ret = cfetch->fetch.result;
 	if (ret != NSSYNC_ERROR_OK) {
-		return ret;
+		goto fetch_error;
 	}
 
-	obj = calloc(1, sizeof(*obj));
-	if (obj == NULL) {
-		free(fetch.data);
-		return NSSYNC_ERROR_NOMEM;
-	}
-
-	root = json_loads(fetch.data, 0, &error);
-	free(fetch.data);
+	root = json_loads(cfetch->fetch.data, 0, &error);
 	if (!root) {
 		debugf("error: on line %d of reply: %s\n",
 			error.line, error.text);
-		return NSSYNC_ERROR_PROTOCOL;
+		ret = NSSYNC_ERROR_PROTOCOL;
+		goto fetch_error;
 	}
 
 	if (!json_is_object(root)) {
 		debugf("error: root is not an object\n");
 		json_decref(root);
-		return NSSYNC_ERROR_PROTOCOL;
+		ret = NSSYNC_ERROR_PROTOCOL;
+		goto fetch_error;
+	}
+
+#if 0
+	enum nssync_error ret;
+	struct nssync_storage_obj *obj;
+	json_t *root;
+	json_error_t error;
+	json_t *payload;
+	obj = calloc(1, sizeof(*obj));
+	if (obj == NULL) {
+		free(fetch.data);
+		return NSSYNC_ERROR_NOMEM;
 	}
 
 	payload = json_object_get(root, "payload");
@@ -328,8 +335,18 @@ nssync_storage_collection_fetch_complete(struct nssync_fetcher_fetch *fetch)
 
 	*obj_out = obj;
 
-	return NSSYNC_ERROR_OK;
+	ret = NSSYNC_ERROR_OK;
+#else 
+	ret = NSSYNC_ERROR_PROTOCOL;
+#endif
 
+fetch_error:
+
+	free(cfetch->fetch.data);
+	free(cfetch->fetch.url);
+	free(cfetch);
+
+	return ret;
 }
 
 /* exported interface documented in storage.h */
@@ -340,12 +357,7 @@ nssync_storage_collection_fetch_async(struct nssync_storage *store,
 				      struct nssync_storage_obj ***objv_out,
 				      int *objc_out)
 {
-	enum nssync_error ret;
-	struct nssync_storage_obj *obj;
-	json_t *root;
-	json_error_t error;
-	json_t *payload;
-	struct collection_cfetch *cfetch;
+	struct collection_fetch *cfetch;
 
 	/* setup the fetch */
 	cfetch = calloc(1, sizeof(*cfetch));
@@ -353,10 +365,10 @@ nssync_storage_collection_fetch_async(struct nssync_storage *store,
 		return NSSYNC_ERROR_NOMEM;
 	}
 
-	cfetch->objv = objv_out;
-	cfetch->objc = objc_out;
+	cfetch->pobjv = objv_out;
+	cfetch->pobjc = objc_out;
 
-	if (nssync__saprintf(&cfetch->fecth.url,
+	if (nssync__saprintf(&cfetch->fetch.url,
 			     "%s/storage/%s?full=1",
 			     store->base, collection) < 0) {
 		free(cfetch);
@@ -367,7 +379,7 @@ nssync_storage_collection_fetch_async(struct nssync_storage *store,
 	cfetch->fetch.password = store->password;
 	cfetch->fetch.completion = nssync_storage_collection_fetch_complete;
 
-	return store->fetcher(fetch);
+	return store->fetcher(&cfetch->fetch);
 }
 
 int

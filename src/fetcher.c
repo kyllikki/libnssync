@@ -38,6 +38,7 @@ nssync_fetcher_curl(struct nssync_fetcher_fetch *fetch)
 	if (fetch->data == NULL) {
 		fetch->data_size = BUFFER_SIZE;
 		fetch->data = malloc(fetch->data_size);
+		fetch->data_used = 0;
 	}
 
 	if (fetch->data == NULL) {

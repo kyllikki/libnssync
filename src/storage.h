@@ -8,6 +8,14 @@ nssync_error nssync_storage_free(struct nssync_storage *store);
 /** fetch storage object from storage server */
 enum nssync_error nssync_storage_obj_fetch(struct nssync_storage *store, struct nssync_crypto_keybundle *keybundle, const char *collection, const char *object, struct nssync_storage_obj **obj_out);
 
+nssync_error
+nssync_storage_collection_fetch_async(struct nssync_storage *store,
+				      struct nssync_crypto_keybundle *keybundle,
+				      const char *collection,
+				      struct nssync_storage_obj ***objv_out,
+				      int *objc_out);
+
+
 int nssync_storage_obj_free(struct nssync_storage_obj *obj);
 
 uint8_t *nssync_storage_obj_payload(struct nssync_storage_obj *obj);
