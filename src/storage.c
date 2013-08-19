@@ -58,10 +58,10 @@ static nssync_error fetch_collections(struct nssync_storage *store)
 	const char *key;
 	json_t *value;
 	int colidx; /* collection index */
-	struct nssync_fetcher_fetch fetch = { };
-
-	fetch.username = store->username;
-	fetch.password = store->password;
+	struct nssync_fetcher_fetch fetch = {
+		.username = store->username,
+		.password = store->password,
+	};
 
 	if (nssync__saprintf(&fetch.url, "%s/info/collections", store->base) < 0) {
 		return -1;
@@ -336,7 +336,7 @@ nssync_storage_collection_fetch_complete(struct nssync_fetcher_fetch *fetch)
 	*obj_out = obj;
 
 	ret = NSSYNC_ERROR_OK;
-#else 
+#else
 	ret = NSSYNC_ERROR_PROTOCOL;
 #endif
 

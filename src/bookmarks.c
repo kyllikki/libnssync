@@ -38,7 +38,7 @@ nssync_bookmarks_new(struct nssync_sync *sync,
 
 	newmarks->sync = sync;
 
-
+	*sync_bookmarks = newmarks;
 
 	return NSSYNC_ERROR_OK;
 }
