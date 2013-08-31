@@ -130,6 +130,7 @@ nssync_registration_new(const char *server,
 enum nssync_error
 nssync_registration_free(struct nssync_registration *reg)
 {
+	free(reg->storage_server);
 	free(reg->username);
 	free(reg->server);
 	free(reg->account);

@@ -105,7 +105,6 @@ static enum nssync_error meta_global(struct nssync_sync *sync)
 	json_error_t error;
 
 	ret = nssync_storage_obj_fetch(sync->store,
-				       NULL,
 				       "meta", "global",
 				       &sync->metaglobal_obj);
 	if (ret != 0) {
@@ -156,6 +155,7 @@ static enum nssync_error crypto_keys(struct nssync_sync *sync)
 {
 	enum nssync_error ret;
 	struct nssync_storage_obj *cryptokeys_obj;
+	char *record;
 
 	json_t *root;
 	json_error_t error;
@@ -164,8 +164,8 @@ static enum nssync_error crypto_keys(struct nssync_sync *sync)
 	json_t *default_key;
 	json_t *default_hmac;
 
+	/* get crypto/keys object from storage */
 	ret = nssync_storage_obj_fetch(sync->store,
-				       sync->sync_keybundle,
 				       "crypto", "keys",
 				       &cryptokeys_obj);
 	if (ret != 0) {
@@ -173,9 +173,18 @@ static enum nssync_error crypto_keys(struct nssync_sync *sync)
 		return ret;
 	}
 
-	root = json_loads((char *)nssync_storage_obj_payload(cryptokeys_obj),
-			  JSON_DISABLE_EOF_CHECK, &error);
+	/* decrypt record */
+	ret = nssync_crypto_decrypt_record(nssync_storage_obj_payload(cryptokeys_obj),
+					   sync->sync_keybundle,
+					   (uint8_t **)&record,
+					   NULL);
+	if (ret != NSSYNC_ERROR_OK) {
+		return ret;
+	}
 
+	/* process decrypted record */
+	root = json_loads(record, JSON_DISABLE_EOF_CHECK, &error);
+	free(record);
 	if (!root) {
 		debugf("error: on line %d: %s\n", error.line, error.text);
 		free(cryptokeys_obj);
@@ -296,3 +305,18 @@ nssync_sync_free(struct nssync_sync *sync)
 
 	return  NSSYNC_ERROR_OK;
 }
+#if 0
+nssync_error
+nssync_sync_collection_open(struct nssync_sync *sync, const char *collection)
+{
+	nssync_error ret;
+	struct nssync_crypto_keybundle *keybundle;
+
+	ret = nssync_storage_collection_fetch_async(sync->store,
+				      keybundle,
+				      collection,
+				      struct nssync_storage_obj ***objv_out,
+				      int *objc_out);
+
+}
+#endif

@@ -21,15 +21,28 @@
 #include <nssync/debug.h>
 
 #include "util.h"
-#include "crypto.h"
 #include "registration.h"
 #include "storage.h"
 
+/* container for object */
+struct nssync_storage_obj {
+	char *id;
+	char *payload;
+	time_t modified;
+	int sortindex;
+	int ttl;
+};
+
+/* container for collection */
 struct nssync_storage_collection {
 	char *name;
 	time_t modified;
+
+	unsigned int objc; /* number of objects in collection */
+	struct nssync_storage_obj **objv; /* list of objects within collection */
 };
 
+/* storage server */
 struct nssync_storage {
 	nssync_fetcher *fetcher; /* fetcher to retrive data */
 
@@ -42,14 +55,7 @@ struct nssync_storage {
 	struct nssync_storage_collection *collections;
 };
 
-struct nssync_storage_obj {
-	char *id;
-	uint8_t *payload;
-	time_t modified;
-	int sortindex;
-	int ttl;
-};
-
+/** fetch the list of collections available on a storage server */
 static nssync_error fetch_collections(struct nssync_storage *store)
 {
 	enum nssync_error ret;
@@ -177,7 +183,6 @@ nssync_storage_free(struct nssync_storage *store)
 /* exported interface documented in storage.h */
 nssync_error
 nssync_storage_obj_fetch(struct nssync_storage *store,
-			 struct nssync_crypto_keybundle *keybundle,
 			 const char *collection,
 			 const char *object,
 			 struct nssync_storage_obj **obj_out)
@@ -187,20 +192,21 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 	char *url;
 	json_t *root;
 	json_error_t error;
-	json_t *payload;
+	json_t *value;
+
 	struct nssync_fetcher_fetch fetch = {
 		.username = store->username,
 		.password = store->password,
 		.data = NULL,
 	};
 
+	/* build object url */
 	if (nssync__saprintf(&url, "%s/storage/%s/%s", store->base,
 			    collection, object) < 0) {
 		return NSSYNC_ERROR_NOMEM;
 	}
 
-	debugf("requesting:%s\n", url);
-
+	/* issue fetch for ojbect */
 	fetch.url = url;
 	ret = store->fetcher(&fetch);
 	free(url);
@@ -228,29 +234,50 @@ nssync_storage_obj_fetch(struct nssync_storage *store,
 		return NSSYNC_ERROR_PROTOCOL;
 	}
 
-	payload = json_object_get(root, "payload");
-	if (!json_is_string(payload)) {
-		fprintf(stderr, "error: payload is not a string\n");
+	/* id string */
+	value = json_object_get(root, "id");
+	if (!json_is_string(value)) {
+		debugf("error: id is not a string\n");
 		json_decref(root);
 		return NSSYNC_ERROR_PROTOCOL;
 	}
 
-	if (keybundle == NULL) {
-		/* no decryption */
-		obj->payload = (uint8_t*)strdup(json_string_value(payload));
-		if (obj->payload == NULL) {
-			json_decref(root);
-			return NSSYNC_ERROR_NOMEM;
-		}
-	} else {
-		ret = nssync_crypto_decrypt_record(json_string_value(payload),
-						   keybundle,
-						   &obj->payload,
-						   NULL);
-		if (ret != NSSYNC_ERROR_OK) {
-			json_decref(root);
-			return ret;
-		}
+	obj->id = strdup(json_string_value(value));
+	if (obj->id == NULL) {
+		json_decref(root);
+		return NSSYNC_ERROR_NOMEM;
+	}
+
+	/* payload string */
+	value = json_object_get(root, "payload");
+	if (!json_is_string(value)) {
+		debugf("error: payload is not a string\n");
+		json_decref(root);
+		return NSSYNC_ERROR_PROTOCOL;
+	}
+
+	obj->payload = strdup(json_string_value(value));
+	if (obj->payload == NULL) {
+		json_decref(root);
+		return NSSYNC_ERROR_NOMEM;
+	}
+
+	/* modified time */
+	value = json_object_get(root, "payload");
+	if (json_is_real(value)) {
+		obj->modified = json_real_value(value);
+	}
+
+	/* ttl integer */
+	value = json_object_get(root, "ttl");
+	if (json_is_integer(value)) {
+		obj->ttl = json_integer_value(value);
+	}
+
+	/* sortindex integer */
+	value = json_object_get(root, "sortindex");
+	if (json_is_integer(value)) {
+		obj->sortindex = json_integer_value(value);
 	}
 
 	json_decref(root);
@@ -313,23 +340,11 @@ nssync_storage_collection_fetch_complete(struct nssync_fetcher_fetch *fetch)
 		return NSSYNC_ERROR_PROTOCOL;
 	}
 
-	if (keybundle == NULL) {
-		/* no decryption */
 		obj->payload = (uint8_t*)strdup(json_string_value(payload));
 		if (obj->payload == NULL) {
 			json_decref(root);
 			return NSSYNC_ERROR_NOMEM;
 		}
-	} else {
-		ret = nssync_crypto_decrypt_record(json_string_value(payload),
-						   keybundle,
-						   &obj->payload,
-						   NULL);
-		if (ret != NSSYNC_ERROR_OK) {
-			json_decref(root);
-			return ret;
-		}
-	}
 
 	json_decref(root);
 
@@ -352,7 +367,6 @@ fetch_error:
 /* exported interface documented in storage.h */
 nssync_error
 nssync_storage_collection_fetch_async(struct nssync_storage *store,
-				      struct nssync_crypto_keybundle *keybundle,
 				      const char *collection,
 				      struct nssync_storage_obj ***objv_out,
 				      int *objc_out)
@@ -382,6 +396,14 @@ nssync_storage_collection_fetch_async(struct nssync_storage *store,
 	return store->fetcher(&cfetch->fetch);
 }
 
+nssync_error
+nssync_storage_collection_enum(struct nssync_storage *store,
+			       const char *collection,
+			       struct nssync_storage_obj **obj_out)
+{
+	return NSSYNC_ERROR_PROTOCOL;
+}
+
 int
 nssync_storage_obj_free(struct nssync_storage_obj *obj)
 {
@@ -392,7 +414,7 @@ nssync_storage_obj_free(struct nssync_storage_obj *obj)
 	return 0;
 }
 
-uint8_t *
+char *
 nssync_storage_obj_payload(struct nssync_storage_obj *obj)
 {
 	return obj->payload;
